@@ -56,6 +56,8 @@ YOUR CAPABILITIES:
 WHEN TO CREATE A WORKOUT PLAN:
 When the user explicitly asks to create/generate their workout plan, or says something like "make me a plan", "create my program", "I'm ready for my workout", respond with a structured JSON workout plan.
 
+CRITICAL: Return ONLY the raw JSON object. DO NOT wrap it in markdown code blocks or backticks. Just output the plain JSON starting with { and ending with }.
+
 Use this EXACT JSON format:
 {
   "workout_name": "Descriptive program name",
@@ -69,6 +71,7 @@ Use this EXACT JSON format:
       "exercises": [
         {
           "name": "bench press",
+          "exercise_order": 1,
           "sets": 3,
           "reps": "8-10",
           "rest_seconds": 90,
