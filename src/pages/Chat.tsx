@@ -252,23 +252,23 @@ const Chat = () => {
       if (aiResponse.includes('{') && aiResponse.includes('"workout_name"')) {
         try {
           console.log('Detected workout plan JSON in response');
+          console.log('Raw AI Response:', aiResponse);
           
-          // Find the first { and last } to extract only the JSON object
-          const firstBrace = aiResponse.indexOf('{');
-          const lastBrace = aiResponse.lastIndexOf('}');
+          // Use regex to extract JSON between first { and last }
+          const jsonMatch = aiResponse.match(/\{[\s\S]*\}/);
           
-          if (firstBrace === -1 || lastBrace === -1 || firstBrace >= lastBrace) {
-            throw new Error('Could not find valid JSON boundaries in response');
+          if (!jsonMatch) {
+            console.error('Could not extract JSON from response');
+            throw new Error('No valid JSON found in response');
           }
           
-          const jsonStr = aiResponse.substring(firstBrace, lastBrace + 1);
-          console.log('Extracted JSON substring (first 200 chars):', jsonStr.substring(0, 200));
-          console.log('JSON length:', jsonStr.length);
+          const jsonStr = jsonMatch[0];
+          console.log('Extracted JSON length:', jsonStr.length);
+          console.log('Extracted JSON preview:', jsonStr.substring(0, 300));
           
           const workoutPlan = JSON.parse(jsonStr);
-          console.log('Successfully parsed workout plan with', workoutPlan.days?.length || 0, 'days');
-          
-          console.log('Parsed workout plan:', workoutPlan);
+          console.log('Successfully parsed workout plan:', workoutPlan);
+          console.log('Days count:', workoutPlan.days?.length || 0);
           
           // Get current user
           const { data: { session } } = await supabase.auth.getSession();
@@ -283,7 +283,7 @@ const Chat = () => {
               user_id: session.user.id,
               name: workoutPlan.workout_name,
               description: workoutPlan.description || null,
-              weeks_duration: workoutPlan.weeks_duration || 4,
+              weeks_duration: 1,
               is_active: true
             })
             .select()
@@ -308,7 +308,7 @@ const Chat = () => {
                 workout_plan_id: plan.id,
                 day_name: day.day_name,
                 day_order: day.day_order,
-                week_number: day.week_number || 1
+                week_number: 1
               })
               .select()
               .single();
@@ -366,15 +366,14 @@ const Chat = () => {
             ),
           });
         } catch (error: any) {
-          console.error('Error parsing or saving workout plan:', error);
-          console.error('AI Response length:', aiResponse.length);
-          console.error('AI Response preview:', aiResponse.substring(0, 500));
-          
-          const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+          console.error('❌ Error parsing or saving workout plan:', error);
+          console.error('📏 AI Response length:', aiResponse.length);
+          console.error('📄 Full AI Response:', aiResponse);
+          console.error('🔍 Error details:', error instanceof Error ? error.message : 'Unknown error');
           
           toast({
             title: "Unable to create workout plan",
-            description: "The plan was too large or incomplete. Try asking again with simpler requirements.",
+            description: "The plan couldn't be parsed. Check console for details.",
             variant: "destructive",
           });
         }
