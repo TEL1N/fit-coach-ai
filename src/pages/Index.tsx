@@ -41,13 +41,13 @@ const Index = () => {
 
           {/* CTA Buttons */}
           <div className="space-y-3">
-            <Link to="/auth" className="block">
+            <Link to="/auth?mode=signup" className="block">
               <Button size="lg" className="w-full h-14 text-base rounded-2xl shadow-lg">
                 Get Started Free
                 <ArrowRight className="w-5 h-5 ml-2" />
               </Button>
             </Link>
-            <Link to="/auth" className="block text-center">
+            <Link to="/auth?mode=signin" className="block text-center">
               <Button variant="ghost" size="lg" className="w-full h-14 text-base rounded-2xl">
                 Already have an account? Sign in
               </Button>
@@ -113,7 +113,7 @@ const Index = () => {
         <p className="text-lg text-muted-foreground mb-8 max-w-md mx-auto">
           Join thousands achieving their fitness goals with AI coaching.
         </p>
-        <Link to="/auth">
+        <Link to="/auth?mode=signup">
           <Button size="lg" className="w-full max-w-sm h-14 text-base rounded-2xl shadow-lg">
             Create Your Account
           </Button>

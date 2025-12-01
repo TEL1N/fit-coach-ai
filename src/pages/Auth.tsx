@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,8 +10,9 @@ import { Link } from "react-router-dom";
 
 const Auth = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [isLoading, setIsLoading] = useState(false);
-  const [isSignUp, setIsSignUp] = useState(false);
+  const [isSignUp, setIsSignUp] = useState(searchParams.get("mode") === "signup");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
@@ -40,13 +41,14 @@ const Auth = () => {
         email,
         password,
         options: {
-          emailRedirectTo: `${window.location.origin}/home`,
+          emailRedirectTo: `${window.location.origin}/onboarding`,
         },
       });
 
       if (error) throw error;
 
-      toast.success("Account created! Welcome to TailorFit!");
+      toast.success("Account created! Let's set up your profile.");
+      navigate("/onboarding");
     } catch (error: any) {
       toast.error(error.message || "Failed to sign up");
     } finally {
