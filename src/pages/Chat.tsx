@@ -1,10 +1,11 @@
 import { useEffect, useState, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import MobileTabBar from "@/components/MobileTabBar";
-import { Send, Zap } from "lucide-react";
+import ConversationSelector from "@/components/ConversationSelector";
+import { Send, Zap, ExternalLink } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { sendClaudeMessage } from "@/lib/claudeService";
 import { getFitnessCoachSystemPrompt } from "@/lib/fitnessCoachPrompt";
@@ -18,12 +19,14 @@ interface Message {
 
 const Chat = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
   const [message, setMessage] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
   const [conversationId, setConversationId] = useState<string | null>(null);
+  const [workoutPlanId, setWorkoutPlanId] = useState<string | null>(null);
   const [userProfile, setUserProfile] = useState<any>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -92,6 +95,54 @@ const Chat = () => {
     scrollToBottom();
   }, [messages]);
 
+  // Handle navigation from Workouts page with conversation ID
+  useEffect(() => {
+    const state = location.state as { conversationId?: string };
+    if (state?.conversationId) {
+      loadConversation(state.conversationId);
+    }
+  }, [location.state]);
+
+  const loadConversation = async (convId: string) => {
+    setIsLoading(true);
+    
+    const { data: conv } = await supabase
+      .from('conversations')
+      .select('workout_plan_id')
+      .eq('id', convId)
+      .single();
+    
+    if (conv) {
+      setWorkoutPlanId(conv.workout_plan_id);
+    }
+
+    const { data: existingMessages } = await supabase
+      .from('messages')
+      .select('*')
+      .eq('conversation_id', convId)
+      .order('created_at', { ascending: true });
+
+    if (existingMessages) {
+      setMessages(existingMessages as Message[]);
+    }
+
+    setConversationId(convId);
+    setIsLoading(false);
+  };
+
+  const handleConversationChange = async (newConvId: string | null) => {
+    if (newConvId === null) {
+      // Start new conversation
+      setConversationId(null);
+      setWorkoutPlanId(null);
+      setMessages([]);
+      setIsLoading(false);
+    } else {
+      // Load existing conversation
+      await loadConversation(newConvId);
+    }
+  };
+
   useEffect(() => {
     const initializeChat = async () => {
       const { data: { session } } = await supabase.auth.getSession();
@@ -108,6 +159,12 @@ const Chat = () => {
         .single();
       
       setUserProfile(profile);
+
+      // Only auto-create conversation if no conversationId is set (new chat)
+      if (conversationId) {
+        setIsLoading(false);
+        return;
+      }
 
       // Load or create conversation
       let { data: conversations } = await supabase
@@ -160,6 +217,17 @@ const Chat = () => {
         }
       } else {
         convId = conversations[0].id;
+        
+        // Load workout_plan_id if linked
+        const { data: conv } = await supabase
+          .from('conversations')
+          .select('workout_plan_id')
+          .eq('id', convId)
+          .single();
+        
+        if (conv) {
+          setWorkoutPlanId(conv.workout_plan_id);
+        }
 
         // Load existing messages
         const { data: existingMessages } = await supabase
@@ -351,6 +419,14 @@ const Chat = () => {
 
           console.log('Workout plan saved successfully!');
 
+          // Link conversation to workout plan
+          await supabase
+            .from('conversations')
+            .update({ workout_plan_id: plan.id })
+            .eq('id', conversationId);
+          
+          setWorkoutPlanId(plan.id);
+
           // Show success message with navigation button
           toast({
             title: "Your plan is ready! 💪",
@@ -406,6 +482,27 @@ const Chat = () => {
 
   return (
     <div className="h-[100dvh] bg-background flex flex-col overflow-hidden transition-all duration-300 ease-out" style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'calc(4rem + env(safe-area-inset-bottom))' }}>
+      {/* Conversation Selector */}
+      <ConversationSelector 
+        currentConversationId={conversationId}
+        onConversationChange={handleConversationChange}
+      />
+
+      {/* View Plan Button - shown when conversation has linked workout plan */}
+      {workoutPlanId && (
+        <div className="px-6 py-3 border-b border-border/30 bg-primary/5">
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full h-9 text-sm font-medium"
+            onClick={() => navigate("/workouts")}
+          >
+            <ExternalLink className="w-4 h-4 mr-2" />
+            View Workout Plan
+          </Button>
+        </div>
+      )}
+
       {/* Messages Area - Scrollable */}
       <div className="flex-1 px-6 py-8 overflow-y-auto min-h-0">
         <div className="max-w-2xl mx-auto">

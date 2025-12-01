@@ -19,18 +19,29 @@ export type Database = {
           created_at: string
           id: string
           user_id: string
+          workout_plan_id: string | null
         }
         Insert: {
           created_at?: string
           id?: string
           user_id: string
+          workout_plan_id?: string | null
         }
         Update: {
           created_at?: string
           id?: string
           user_id?: string
+          workout_plan_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "conversations_workout_plan_id_fkey"
+            columns: ["workout_plan_id"]
+            isOneToOne: false
+            referencedRelation: "workout_plans"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       exercise_aliases: {
         Row: {
