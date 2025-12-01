@@ -221,9 +221,14 @@ const Chat = () => {
 
       conversationHistory.push({ role: 'user', content: userMessage });
 
-      // Get AI response
+      // Get AI response with higher token limit for workout plans
       const systemPrompt = getFitnessCoachSystemPrompt(userProfile);
-      const aiResponse = await sendClaudeMessage(conversationHistory, systemPrompt);
+      const isWorkoutPlanRequest = userMessage.toLowerCase().includes('workout plan') || 
+                                   userMessage.toLowerCase().includes('create my') ||
+                                   userMessage.toLowerCase().includes('personalized');
+      const maxTokens = isWorkoutPlanRequest ? 4096 : 2048;
+      
+      const aiResponse = await sendClaudeMessage(conversationHistory, systemPrompt, maxTokens);
 
       // Save AI response
       const { data: aiMsg } = await supabase
@@ -245,81 +250,121 @@ const Chat = () => {
       // Check if response contains JSON workout plan and save it
       if (aiResponse.includes('{') && aiResponse.includes('"workout_name"')) {
         try {
-          // Extract JSON from the response
-          const jsonMatch = aiResponse.match(/\{[\s\S]*\}/);
-          if (jsonMatch) {
-            const workoutPlan = JSON.parse(jsonMatch[0]);
-            
-            // Get current user
-            const { data: { session } } = await supabase.auth.getSession();
-            if (!session) return;
+          // Extract JSON from the response, handling markdown code blocks
+          let jsonString = aiResponse;
+          
+          // Remove markdown code blocks if present
+          jsonString = jsonString.replace(/```json\n?/g, '').replace(/```\n?/g, '');
+          
+          // Extract JSON object
+          const jsonMatch = jsonString.match(/\{[\s\S]*\}/);
+          if (!jsonMatch) {
+            throw new Error('Could not find valid JSON in response');
+          }
+          
+          const workoutPlan = JSON.parse(jsonMatch[0]);
+          
+          console.log('Parsed workout plan:', workoutPlan);
+          
+          // Get current user
+          const { data: { session } } = await supabase.auth.getSession();
+          if (!session) {
+            throw new Error('No active session');
+          }
 
-            // Save workout plan to database
-            const { data: plan, error: planError } = await supabase
-              .from('workout_plans')
+          // Save workout plan to database
+          const { data: plan, error: planError } = await supabase
+            .from('workout_plans')
+            .insert({
+              user_id: session.user.id,
+              name: workoutPlan.workout_name,
+              description: workoutPlan.description || null,
+              weeks_duration: workoutPlan.weeks_duration || 4,
+              is_active: true
+            })
+            .select()
+            .single();
+
+          if (planError) {
+            console.error('Error inserting workout plan:', planError);
+            throw planError;
+          }
+          
+          if (!plan) {
+            throw new Error('No plan returned from insert');
+          }
+
+          console.log('Created workout plan:', plan.id);
+
+          // Save workout days and exercises
+          for (const day of workoutPlan.days) {
+            const { data: workoutDay, error: dayError } = await supabase
+              .from('workout_days')
               .insert({
-                user_id: session.user.id,
-                name: workoutPlan.workout_name,
-                description: workoutPlan.description || null,
-                weeks_duration: workoutPlan.weeks_duration || 4,
-                is_active: true
+                workout_plan_id: plan.id,
+                day_name: day.day_name,
+                day_order: day.day_order,
+                week_number: day.week_number || 1
               })
               .select()
               .single();
 
-            if (planError || !plan) throw planError;
-
-            // Save workout days and exercises
-            for (const day of workoutPlan.days) {
-              const { data: workoutDay, error: dayError } = await supabase
-                .from('workout_days')
-                .insert({
-                  workout_plan_id: plan.id,
-                  day_name: day.day_name,
-                  day_order: day.day_order,
-                  week_number: day.week_number || 1
-                })
-                .select()
-                .single();
-
-              if (dayError || !workoutDay) throw dayError;
-
-              // Save exercises for this day
-              for (const exercise of day.exercises) {
-                await supabase
-                  .from('workout_exercises')
-                  .insert({
-                    workout_day_id: workoutDay.id,
-                    exercise_id: null, // Will link to WGER exercises later
-                    exercise_order: exercise.exercise_order,
-                    sets: exercise.sets,
-                    reps: exercise.reps,
-                    rest_seconds: exercise.rest_seconds,
-                    notes: exercise.notes || null
-                  });
-              }
+            if (dayError) {
+              console.error('Error inserting workout day:', dayError);
+              throw dayError;
+            }
+            
+            if (!workoutDay) {
+              throw new Error('No workout day returned from insert');
             }
 
-            // Show success message with navigation button
-            toast({
-              title: "Your plan is ready! 💪",
-              description: "Click to view your personalized workout plan",
-              action: (
-                <Button 
-                  size="sm" 
-                  onClick={() => navigate("/workouts")}
-                  className="ml-auto"
-                >
-                  View Plan
-                </Button>
-              ),
-            });
+            console.log(`Created workout day: ${workoutDay.day_name}`);
+
+            // Save exercises for this day
+            for (let i = 0; i < day.exercises.length; i++) {
+              const exercise = day.exercises[i];
+              const { error: exerciseError } = await supabase
+                .from('workout_exercises')
+                .insert({
+                  workout_day_id: workoutDay.id,
+                  exercise_id: null, // Will link to WGER exercises later
+                  exercise_order: exercise.exercise_order || i + 1,
+                  sets: exercise.sets,
+                  reps: exercise.reps,
+                  rest_seconds: exercise.rest_seconds,
+                  notes: exercise.notes || null
+                });
+              
+              if (exerciseError) {
+                console.error('Error inserting exercise:', exerciseError);
+                throw exerciseError;
+              }
+              
+              console.log(`Created exercise: ${exercise.name}`);
+            }
           }
-        } catch (error) {
+
+          console.log('Workout plan saved successfully!');
+
+          // Show success message with navigation button
+          toast({
+            title: "Your plan is ready! 💪",
+            description: "Click to view your personalized workout plan",
+            action: (
+              <Button 
+                size="sm" 
+                onClick={() => navigate("/workouts")}
+                className="ml-auto"
+              >
+                View Plan
+              </Button>
+            ),
+          });
+        } catch (error: any) {
           console.error('Error saving workout plan:', error);
           toast({
             title: "Error",
-            description: "Failed to save workout plan. Please try again.",
+            description: error.message || "Failed to save workout plan. Please try again.",
             variant: "destructive",
           });
         }
