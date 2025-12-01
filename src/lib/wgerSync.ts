@@ -47,7 +47,7 @@ function normalizeExerciseName(name: string): string {
 export async function syncWgerExercises(): Promise<{ success: boolean; count: number; error?: string }> {
   try {
     let allExercises: WgerExercise[] = [];
-    let url = `${WGER_API_BASE}/exercise/?language=2&limit=999`;
+    let url = `${WGER_API_BASE}/exerciseinfo/?language=2&limit=999`;
 
     // Fetch all pages of exercises
     while (url) {
@@ -57,6 +57,12 @@ export async function syncWgerExercises(): Promise<{ success: boolean; count: nu
       }
 
       const data: WgerResponse = await response.json();
+      console.log('Raw API response:', { count: data.count, hasResults: !!data.results, resultsLength: data.results?.length });
+      
+      if (data.results && data.results.length > 0) {
+        console.log('First exercise object:', JSON.stringify(data.results[0], null, 2));
+      }
+      
       allExercises = [...allExercises, ...data.results];
       url = data.next || '';
     }
