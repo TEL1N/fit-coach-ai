@@ -128,27 +128,27 @@ const Workouts = () => {
   }
 
   return (
-    <div className="h-screen bg-background flex flex-col overflow-hidden">
+    <div className="h-[100dvh] bg-background flex flex-col overflow-hidden transition-all duration-300 ease-out">
       {/* Header */}
-      <div className="bg-card border-b border-border px-6 py-4 flex-shrink-0" style={{ paddingTop: 'max(1rem, env(safe-area-inset-top))' }}>
+      <div className="bg-card border-b border-border px-6 py-5 flex-shrink-0" style={{ paddingTop: 'max(1.25rem, env(safe-area-inset-top))' }}>
         <h1 className="text-2xl font-bold">My Workouts</h1>
         <p className="text-sm text-muted-foreground">Your personalized training plans</p>
       </div>
 
       {/* Main Content - Scrollable */}
-      <div className="flex-1 px-6 py-6 overflow-y-auto min-h-0" style={{ paddingBottom: 'calc(5rem + max(1rem, env(safe-area-inset-bottom)))' }}>
+      <div className="flex-1 px-6 py-8 overflow-y-auto min-h-0" style={{ paddingBottom: 'calc(5rem + max(1rem, env(safe-area-inset-bottom)))' }}>
         {workoutPlan ? (
           <>
             {/* Plan Header */}
-            <div className="mb-6">
-              <h2 className="text-2xl font-bold mb-2">{workoutPlan.name}</h2>
+            <div className="mb-8">
+              <h2 className="text-2xl font-bold mb-3">{workoutPlan.name}</h2>
               {workoutPlan.description && (
                 <p className="text-muted-foreground">{workoutPlan.description}</p>
               )}
             </div>
 
             {/* Workout Days */}
-            <div className="space-y-3">
+            <div className="space-y-4">
               {workoutPlan.days.map((day) => (
                 <Collapsible
                   key={day.id}
@@ -157,7 +157,7 @@ const Workouts = () => {
                 >
                   <Card className="overflow-hidden">
                     <CollapsibleTrigger className="w-full">
-                      <div className="p-4 flex items-center justify-between hover:bg-muted/50 transition-colors">
+                      <div className="p-5 flex items-center justify-between hover:bg-muted/50 transition-colors">
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
                             <span className="text-primary font-semibold">{day.day_order}</span>

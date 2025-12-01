@@ -58,9 +58,9 @@ const Home = () => {
   }
 
   return (
-    <div className="h-screen bg-background flex flex-col overflow-hidden">
+    <div className="h-[100dvh] bg-background flex flex-col overflow-hidden transition-all duration-300 ease-out">
       {/* Header */}
-      <div className="bg-gradient-to-br from-primary/10 via-background to-background px-6 pt-12 pb-8 flex-shrink-0" style={{ paddingTop: 'max(3rem, env(safe-area-inset-top))' }}>
+      <div className="bg-gradient-to-br from-primary/10 via-background to-background px-6 pt-12 pb-10 flex-shrink-0" style={{ paddingTop: 'max(3rem, env(safe-area-inset-top))' }}>
         <h1 className="text-3xl font-bold mb-2">Welcome back!</h1>
         <p className="text-muted-foreground">
           {user?.email?.split("@")[0] || "Fitness enthusiast"}
@@ -68,10 +68,10 @@ const Home = () => {
       </div>
 
       {/* Main Content - Scrollable */}
-      <div className="flex-1 px-6 -mt-4 overflow-y-auto min-h-0" style={{ paddingBottom: 'calc(5rem + max(1rem, env(safe-area-inset-bottom)))' }}>
+      <div className="flex-1 px-6 -mt-6 overflow-y-auto min-h-0" style={{ paddingBottom: 'calc(5rem + max(1rem, env(safe-area-inset-bottom)))' }}>
         {/* Stats Cards */}
-        <div className="grid grid-cols-3 gap-3 mb-6">
-          <Card className="p-4 text-center">
+        <div className="grid grid-cols-3 gap-4 mb-8">
+          <Card className="p-5 text-center">
             <Flame className="w-6 h-6 mx-auto mb-2 text-primary" />
             <p className="text-2xl font-bold">0</p>
             <p className="text-xs text-muted-foreground">Day Streak</p>
@@ -103,7 +103,7 @@ const Home = () => {
         </Card>
 
         {/* Action Buttons */}
-        <div className="space-y-3">
+        <div className="space-y-4">
           <Button 
             className="w-full h-14 text-base rounded-2xl shadow-lg"
             onClick={() => navigate("/chat")}

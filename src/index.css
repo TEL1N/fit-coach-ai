@@ -211,4 +211,12 @@ All colors MUST be HSL.
     overflow-y: scroll;
     -webkit-overflow-scrolling: touch;
   }
+
+  /* Keyboard-aware smooth transitions */
+  @supports (height: 100dvh) {
+    .keyboard-adaptive {
+      height: 100dvh;
+      transition: height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+  }
 }
