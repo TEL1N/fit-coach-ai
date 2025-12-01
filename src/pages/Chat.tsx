@@ -242,12 +242,87 @@ const Chat = () => {
         playReceiveSound();
       }
 
-      // Check if response contains JSON workout plan
+      // Check if response contains JSON workout plan and save it
       if (aiResponse.includes('{') && aiResponse.includes('"workout_name"')) {
-        toast({
-          title: "Workout Plan Detected!",
-          description: "I found a workout plan in the response. Ready to save it?",
-        });
+        try {
+          // Extract JSON from the response
+          const jsonMatch = aiResponse.match(/\{[\s\S]*\}/);
+          if (jsonMatch) {
+            const workoutPlan = JSON.parse(jsonMatch[0]);
+            
+            // Get current user
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session) return;
+
+            // Save workout plan to database
+            const { data: plan, error: planError } = await supabase
+              .from('workout_plans')
+              .insert({
+                user_id: session.user.id,
+                name: workoutPlan.workout_name,
+                description: workoutPlan.description || null,
+                weeks_duration: workoutPlan.weeks_duration || 4,
+                is_active: true
+              })
+              .select()
+              .single();
+
+            if (planError || !plan) throw planError;
+
+            // Save workout days and exercises
+            for (const day of workoutPlan.days) {
+              const { data: workoutDay, error: dayError } = await supabase
+                .from('workout_days')
+                .insert({
+                  workout_plan_id: plan.id,
+                  day_name: day.day_name,
+                  day_order: day.day_order,
+                  week_number: day.week_number || 1
+                })
+                .select()
+                .single();
+
+              if (dayError || !workoutDay) throw dayError;
+
+              // Save exercises for this day
+              for (const exercise of day.exercises) {
+                await supabase
+                  .from('workout_exercises')
+                  .insert({
+                    workout_day_id: workoutDay.id,
+                    exercise_id: null, // Will link to WGER exercises later
+                    exercise_order: exercise.exercise_order,
+                    sets: exercise.sets,
+                    reps: exercise.reps,
+                    rest_seconds: exercise.rest_seconds,
+                    notes: exercise.notes || null
+                  });
+              }
+            }
+
+            // Show success message with navigation button
+            toast({
+              title: "Your plan is ready! 💪",
+              description: "Click to view your personalized workout plan",
+              action: (
+                <Button 
+                  size="sm" 
+                  onClick={() => navigate("/workouts")}
+                  className="ml-auto"
+                >
+                  View Plan
+                </Button>
+              ),
+            });
+          }
+        } catch (error) {
+          console.error('Error saving workout plan:', error);
+          toast({
+            title: "Error",
+            description: "Failed to save workout plan. Please try again.",
+            variant: "destructive",
+          });
+        }
       }
 
     } catch (error) {
@@ -294,7 +369,11 @@ const Chat = () => {
                 }`}
               >
                 <p className="text-[15px] leading-relaxed whitespace-pre-wrap break-words font-normal">
-                  {msg.role === 'assistant' ? formatMessage(msg.content) : msg.content}
+                  {msg.role === 'assistant' 
+                    ? (msg.content.includes('{') && msg.content.includes('"workout_name"')
+                        ? "Your plan is ready! 💪 Check it out in the Workouts tab."
+                        : formatMessage(msg.content))
+                    : msg.content}
                 </p>
                 <p className={`text-[11px] mt-1 ${
                   msg.role === 'user' 
