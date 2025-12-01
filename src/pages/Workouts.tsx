@@ -6,13 +6,23 @@ import { Button } from "@/components/ui/button";
 import MobileTabBar from "@/components/MobileTabBar";
 import EditPlanBottomSheet from "@/components/EditPlanBottomSheet";
 import ExerciseEditCard from "@/components/ExerciseEditCard";
-import { Calendar, Clock, Dumbbell, Plus, ChevronDown, ChevronUp, MessageSquare, Pencil } from "lucide-react";
+import { Calendar, Clock, Dumbbell, Plus, ChevronDown, ChevronUp, MessageSquare, Pencil, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface Exercise {
   id: string;
@@ -49,6 +59,7 @@ const Workouts = () => {
   const [isEditMode, setIsEditMode] = useState(false);
   const [editingExerciseId, setEditingExerciseId] = useState<string | null>(null);
   const [originalPlan, setOriginalPlan] = useState<WorkoutPlan | null>(null);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
   const toggleDay = (dayId: string) => {
     setExpandedDays(prev => {
@@ -175,6 +186,33 @@ const Workouts = () => {
       toast({
         title: "Error",
         description: "Failed to delete exercise. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDeletePlan = async () => {
+    if (!workoutPlan) return;
+
+    try {
+      await supabase
+        .from('workout_plans')
+        .delete()
+        .eq('id', workoutPlan.id);
+
+      toast({
+        title: "Plan deleted",
+        description: "Your workout plan has been deleted.",
+      });
+
+      setWorkoutPlan(null);
+      setIsEditMode(false);
+      setIsDeleteDialogOpen(false);
+    } catch (error) {
+      console.error('Error deleting plan:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete plan. Please try again.",
         variant: "destructive",
       });
     }
@@ -434,6 +472,20 @@ const Workouts = () => {
                 </Collapsible>
               ))}
             </div>
+
+            {/* Delete Plan Button - Only in Edit Mode */}
+            {isEditMode && (
+              <div className="mt-8 pt-6 border-t border-border">
+                <Button
+                  variant="outline"
+                  className="w-full h-12 rounded-xl border-destructive text-destructive hover:bg-destructive/10 hover:text-destructive font-medium"
+                  onClick={() => setIsDeleteDialogOpen(true)}
+                >
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Delete Plan
+                </Button>
+              </div>
+            )}
           </>
         ) : (
           /* Empty State */
@@ -486,6 +538,27 @@ const Workouts = () => {
         onEditWithAI={handleEditWithAI}
         onEditManually={handleEditManually}
       />
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this workout plan?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This can't be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeletePlan}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <MobileTabBar />
     </div>
