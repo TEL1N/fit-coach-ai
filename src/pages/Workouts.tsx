@@ -195,6 +195,15 @@ const Workouts = () => {
     if (!workoutPlan) return;
 
     try {
+      // Delete the linked conversation first
+      if (workoutPlan.conversationId) {
+        await supabase
+          .from('conversations')
+          .delete()
+          .eq('id', workoutPlan.conversationId);
+      }
+
+      // Then delete the workout plan
       await supabase
         .from('workout_plans')
         .delete()
