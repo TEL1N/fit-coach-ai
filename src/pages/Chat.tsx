@@ -351,7 +351,7 @@ const Chat = () => {
   }
 
   return (
-    <div className="h-screen bg-background flex flex-col overflow-hidden" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
+    <div className="h-screen bg-background flex flex-col overflow-hidden" style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'calc(4rem + env(safe-area-inset-bottom))' }}>
       {/* Messages Area - Scrollable */}
       <div className="flex-1 px-4 py-6 overflow-y-auto min-h-0">
         <div className="max-w-2xl mx-auto">
@@ -402,8 +402,8 @@ const Chat = () => {
         </div>
       </div>
 
-      {/* Input Area - Fixed at bottom */}
-      <div className="border-t border-border/50 bg-card/95 backdrop-blur-xl px-4 py-3 flex-shrink-0" style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
+      {/* Input Area - Fixed at bottom, above tab bar */}
+      <div className="border-t border-border/50 bg-card/95 backdrop-blur-xl px-4 py-3 flex-shrink-0">
         <div className="max-w-2xl mx-auto">
           <Button
             onClick={handleGenerateWorkoutPlan}
