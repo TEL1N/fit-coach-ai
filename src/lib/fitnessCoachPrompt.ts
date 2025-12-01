@@ -64,16 +64,20 @@ CRITICAL JSON OUTPUT RULES:
 5. NO markdown code blocks or backticks
 6. Just pure, valid JSON from start to finish
 
-Use this EXACT JSON format:
+WORKOUT PLAN CONSTRAINTS:
+- Generate 1 week of workouts only (not multiple weeks)
+- Maximum 4 workout days
+- Each day should have 4-5 exercises maximum
+- Keep it simple and achievable
+
+Use this EXACT JSON format (no weeks_duration or week_number fields):
 {
   "workout_name": "Descriptive program name",
   "description": "Brief overview of approach and focus",
-  "weeks_duration": 4,
   "days": [
     {
       "day_name": "Monday - Upper Push",
       "day_order": 1,
-      "week_number": 1,
       "exercises": [
         {
           "name": "bench press",
