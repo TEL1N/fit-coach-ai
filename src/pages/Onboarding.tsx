@@ -135,9 +135,9 @@ const Onboarding = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-background flex flex-col safe-area-top safe-area-bottom">
+    <div className="h-screen bg-background flex flex-col overflow-hidden">
       {/* Progress Indicator */}
-      <div className="px-6 pt-4 pb-2">
+      <div className="px-6 pt-safe pb-2 flex-shrink-0" style={{ paddingTop: 'max(1rem, env(safe-area-inset-top))' }}>
         <div className="flex items-center justify-between mb-2">
           <span className="text-sm text-muted-foreground font-medium">
             {currentStep + 1}/5
@@ -151,8 +151,8 @@ const Onboarding = () => {
         </div>
       </div>
 
-      {/* Content Area */}
-      <div className="flex-1 overflow-hidden">
+      {/* Content Area - Scrollable */}
+      <div className="flex-1 overflow-hidden min-h-0">
         <div 
           className="h-full flex transition-transform duration-300 ease-out"
           style={{ transform: `translateX(-${currentStep * 100}%)` }}
@@ -310,8 +310,8 @@ const Onboarding = () => {
         </div>
       </div>
 
-      {/* Navigation Buttons */}
-      <div className="px-6 py-6 space-y-3 border-t border-border">
+      {/* Navigation Buttons - Fixed at bottom */}
+      <div className="px-6 py-4 space-y-3 border-t border-border flex-shrink-0" style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
         {currentStep === 0 ? (
           <Button
             onClick={handleNext}

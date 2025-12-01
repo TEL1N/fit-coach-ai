@@ -77,9 +77,9 @@ const Auth = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background flex flex-col safe-area-top safe-area-bottom">
+    <div className="h-screen bg-background flex flex-col overflow-hidden">
       {/* Header */}
-      <div className="px-6 py-4">
+      <div className="px-6 py-4 flex-shrink-0" style={{ paddingTop: 'max(1rem, env(safe-area-inset-top))' }}>
         <Link to="/">
           <Button variant="ghost" size="icon" className="rounded-full">
             <ArrowLeft className="w-6 h-6" />
@@ -88,7 +88,7 @@ const Auth = () => {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col justify-center px-6 pb-8">
+      <div className="flex-1 flex flex-col justify-center px-6 pb-8 overflow-y-auto min-h-0" style={{ paddingBottom: 'max(2rem, env(safe-area-inset-bottom))' }}>
         {/* Logo */}
         <div className="text-center mb-8">
           <div className="w-20 h-20 bg-primary/10 rounded-3xl flex items-center justify-center mx-auto mb-4">
