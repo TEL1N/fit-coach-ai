@@ -225,8 +225,9 @@ const Chat = () => {
       const systemPrompt = getFitnessCoachSystemPrompt(userProfile);
       const isWorkoutPlanRequest = userMessage.toLowerCase().includes('workout plan') || 
                                    userMessage.toLowerCase().includes('create my') ||
-                                   userMessage.toLowerCase().includes('personalized');
-      const maxTokens = isWorkoutPlanRequest ? 4096 : 2048;
+                                   userMessage.toLowerCase().includes('personalized') ||
+                                   userMessage.toLowerCase().includes('plan');
+      const maxTokens = isWorkoutPlanRequest ? 8192 : 2048;
       
       const aiResponse = await sendClaudeMessage(conversationHistory, systemPrompt, maxTokens);
 
@@ -250,19 +251,22 @@ const Chat = () => {
       // Check if response contains JSON workout plan and save it
       if (aiResponse.includes('{') && aiResponse.includes('"workout_name"')) {
         try {
-          // Extract JSON from the response, handling markdown code blocks
-          let jsonString = aiResponse;
+          console.log('Detected workout plan JSON in response');
           
-          // Remove markdown code blocks if present
-          jsonString = jsonString.replace(/```json\n?/g, '').replace(/```\n?/g, '');
+          // Find the first { and last } to extract only the JSON object
+          const firstBrace = aiResponse.indexOf('{');
+          const lastBrace = aiResponse.lastIndexOf('}');
           
-          // Extract JSON object
-          const jsonMatch = jsonString.match(/\{[\s\S]*\}/);
-          if (!jsonMatch) {
-            throw new Error('Could not find valid JSON in response');
+          if (firstBrace === -1 || lastBrace === -1 || firstBrace >= lastBrace) {
+            throw new Error('Could not find valid JSON boundaries in response');
           }
           
-          const workoutPlan = JSON.parse(jsonMatch[0]);
+          const jsonStr = aiResponse.substring(firstBrace, lastBrace + 1);
+          console.log('Extracted JSON substring (first 200 chars):', jsonStr.substring(0, 200));
+          console.log('JSON length:', jsonStr.length);
+          
+          const workoutPlan = JSON.parse(jsonStr);
+          console.log('Successfully parsed workout plan with', workoutPlan.days?.length || 0, 'days');
           
           console.log('Parsed workout plan:', workoutPlan);
           
@@ -362,10 +366,15 @@ const Chat = () => {
             ),
           });
         } catch (error: any) {
-          console.error('Error saving workout plan:', error);
+          console.error('Error parsing or saving workout plan:', error);
+          console.error('AI Response length:', aiResponse.length);
+          console.error('AI Response preview:', aiResponse.substring(0, 500));
+          
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+          
           toast({
-            title: "Error",
-            description: error.message || "Failed to save workout plan. Please try again.",
+            title: "Unable to create workout plan",
+            description: "The plan was too large or incomplete. Try asking again with simpler requirements.",
             variant: "destructive",
           });
         }
