@@ -42,10 +42,19 @@ const Onboarding = () => {
   };
 
   const toggleEquipment = (item: string) => {
-    if (equipment.includes(item)) {
-      setEquipment(equipment.filter(e => e !== item));
+    // Exclusive selections
+    if (item === "full_gym" || item === "bodyweight") {
+      setEquipment([item]);
+      return;
+    }
+    
+    // If selecting anything else, remove exclusive options
+    const filteredEquipment = equipment.filter(e => e !== "full_gym" && e !== "bodyweight");
+    
+    if (filteredEquipment.includes(item)) {
+      setEquipment(filteredEquipment.filter(e => e !== item));
     } else {
-      setEquipment([...equipment, item]);
+      setEquipment([...filteredEquipment, item]);
     }
   };
 
@@ -104,13 +113,22 @@ const Onboarding = () => {
   ];
 
   const equipmentOptions = [
-    { value: "full_gym", label: "Full Gym Access", icon: "🏢" },
-    { value: "barbell", label: "Barbell", icon: "🏋️" },
-    { value: "dumbbells", label: "Dumbbells", icon: "💪" },
-    { value: "kettlebells", label: "Kettlebells", icon: "⚫" },
-    { value: "resistance_bands", label: "Resistance Bands", icon: "🔗" },
-    { value: "pullup_bar", label: "Pull-up Bar", icon: "🎯" },
-    { value: "bodyweight", label: "Bodyweight Only", icon: "🤸" },
+    { value: "full_gym", label: "Full Commercial Gym", desc: "Access to everything", icon: "🏢" },
+    { value: "barbell", label: "Barbell", icon: "🏋️", category: "home" },
+    { value: "dumbbells", label: "Dumbbells", icon: "💪", category: "home" },
+    { value: "squat_rack", label: "Squat Rack", icon: "🦵", category: "home" },
+    { value: "bench", label: "Bench", icon: "🪑", category: "home" },
+    { value: "pullup_bar", label: "Pull-up Bar", icon: "🎯", category: "home" },
+    { value: "cable_machine", label: "Cable Machine", icon: "🏋️‍♂️", category: "home" },
+    { value: "kettlebells", label: "Kettlebells", icon: "⚫", category: "home" },
+    { value: "resistance_bands", label: "Resistance Bands", icon: "🔗", category: "home" },
+    { value: "bodyweight", label: "Bodyweight Only", desc: "No equipment needed", icon: "🤸" },
+  ];
+
+  const workoutIntensities = [
+    { value: "light", label: "Light", desc: "1-2 days/week", detail: "Perfect for busy schedules", icon: "💤", frequency: 2 },
+    { value: "moderate", label: "Moderate", desc: "3-4 days/week", detail: "Balanced approach", icon: "📊", frequency: 4 },
+    { value: "intense", label: "Intense", desc: "5-7 days/week", detail: "Maximum commitment", icon: "🔥", frequency: 6 },
   ];
 
   return (
@@ -206,22 +224,35 @@ const Onboarding = () => {
             <h2 className="text-3xl font-bold mb-4">What equipment do you have?</h2>
             <p className="text-muted-foreground mb-6">Select all that apply</p>
             <div className="space-y-3 flex-1 overflow-y-auto">
-              {equipmentOptions.map((item) => (
-                <Card
-                  key={item.value}
-                  className={`p-5 cursor-pointer transition-all ${
-                    equipment.includes(item.value)
-                      ? "border-primary border-2 bg-primary/5"
-                      : "hover:bg-accent"
-                  }`}
-                  onClick={() => toggleEquipment(item.value)}
-                >
-                  <div className="flex items-center gap-3">
-                    <span className="text-3xl">{item.icon}</span>
-                    <span className="text-base font-semibold">{item.label}</span>
-                  </div>
-                </Card>
-              ))}
+              {equipmentOptions.map((item) => {
+                const isDisabled = 
+                  (equipment.includes("full_gym") && item.value !== "full_gym") ||
+                  (equipment.includes("bodyweight") && item.value !== "bodyweight");
+                
+                return (
+                  <Card
+                    key={item.value}
+                    className={`p-5 cursor-pointer transition-all ${
+                      equipment.includes(item.value)
+                        ? "border-primary border-2 bg-primary/5"
+                        : isDisabled
+                        ? "opacity-40 cursor-not-allowed"
+                        : "hover:bg-accent"
+                    }`}
+                    onClick={() => !isDisabled && toggleEquipment(item.value)}
+                  >
+                    <div className="flex items-start gap-3">
+                      <span className="text-3xl">{item.icon}</span>
+                      <div>
+                        <p className="text-base font-semibold mb-0.5">{item.label}</p>
+                        {item.desc && (
+                          <p className="text-sm text-muted-foreground">{item.desc}</p>
+                        )}
+                      </div>
+                    </div>
+                  </Card>
+                );
+              })}
             </div>
           </div>
 
@@ -232,21 +263,28 @@ const Onboarding = () => {
             <div className="space-y-8 flex-1">
               <div>
                 <p className="text-lg font-semibold mb-4">
-                  How many days per week can you workout?
+                  How often can you workout?
                 </p>
-                <div className="flex gap-2 justify-between">
-                  {[2, 3, 4, 5, 6, 7].map((num) => (
-                    <button
-                      key={num}
-                      onClick={() => setWorkoutFrequency(num)}
-                      className={`flex-1 h-14 rounded-2xl font-semibold transition-all ${
-                        workoutFrequency === num
-                          ? "bg-primary text-primary-foreground shadow-lg scale-105"
-                          : "bg-card border-2 border-border hover:bg-accent"
+                <div className="space-y-3">
+                  {workoutIntensities.map((intensity) => (
+                    <Card
+                      key={intensity.value}
+                      className={`p-6 cursor-pointer transition-all ${
+                        workoutFrequency === intensity.frequency
+                          ? "border-primary border-2 bg-primary/5"
+                          : "hover:bg-accent"
                       }`}
+                      onClick={() => setWorkoutFrequency(intensity.frequency)}
                     >
-                      {num}
-                    </button>
+                      <div className="flex items-start gap-4">
+                        <span className="text-4xl">{intensity.icon}</span>
+                        <div>
+                          <p className="text-lg font-semibold mb-1">{intensity.label}</p>
+                          <p className="text-sm font-medium text-muted-foreground mb-1">{intensity.desc}</p>
+                          <p className="text-xs text-muted-foreground">{intensity.detail}</p>
+                        </div>
+                      </div>
+                    </Card>
                   ))}
                 </div>
               </div>
