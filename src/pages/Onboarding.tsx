@@ -135,9 +135,9 @@ const Onboarding = () => {
   ];
 
   return (
-    <div className="h-screen bg-background flex flex-col overflow-hidden">
+    <div className="h-[100dvh] bg-background flex flex-col overflow-hidden transition-all duration-300 ease-out">
       {/* Progress Indicator */}
-      <div className="px-6 pt-safe pb-2 flex-shrink-0" style={{ paddingTop: 'max(1rem, env(safe-area-inset-top))' }}>
+      <div className="px-6 pt-safe pb-3 flex-shrink-0" style={{ paddingTop: 'max(1.25rem, env(safe-area-inset-top))' }}>
         <div className="flex items-center justify-between mb-2">
           <span className="text-sm text-muted-foreground font-medium">
             {currentStep + 1}/5
@@ -311,7 +311,7 @@ const Onboarding = () => {
       </div>
 
       {/* Navigation Buttons - Fixed at bottom */}
-      <div className="px-6 py-4 space-y-3 border-t border-border flex-shrink-0" style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
+      <div className="px-6 py-5 space-y-4 border-t border-border flex-shrink-0" style={{ paddingBottom: 'max(1.25rem, env(safe-area-inset-bottom))' }}>
         {currentStep === 0 ? (
           <Button
             onClick={handleNext}

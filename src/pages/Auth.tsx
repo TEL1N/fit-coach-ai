@@ -77,9 +77,9 @@ const Auth = () => {
   };
 
   return (
-    <div className="h-screen bg-background flex flex-col overflow-hidden">
+    <div className="h-[100dvh] bg-background flex flex-col overflow-hidden transition-all duration-300 ease-out">
       {/* Header */}
-      <div className="px-6 py-4 flex-shrink-0" style={{ paddingTop: 'max(1rem, env(safe-area-inset-top))' }}>
+      <div className="px-6 py-5 flex-shrink-0" style={{ paddingTop: 'max(1.25rem, env(safe-area-inset-top))' }}>
         <Link to="/">
           <Button variant="ghost" size="icon" className="rounded-full">
             <ArrowLeft className="w-6 h-6" />

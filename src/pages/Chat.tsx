@@ -351,18 +351,18 @@ const Chat = () => {
   }
 
   return (
-    <div className="h-screen bg-background flex flex-col overflow-hidden" style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'calc(4rem + env(safe-area-inset-bottom))' }}>
+    <div className="h-[100dvh] bg-background flex flex-col overflow-hidden transition-all duration-300 ease-out" style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'calc(4rem + env(safe-area-inset-bottom))' }}>
       {/* Messages Area - Scrollable */}
-      <div className="flex-1 px-4 py-6 overflow-y-auto min-h-0">
+      <div className="flex-1 px-6 py-8 overflow-y-auto min-h-0">
         <div className="max-w-2xl mx-auto">
           {messages.map((msg, index) => (
             <div
               key={msg.id}
-              className={`mb-3 flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} animate-fade-in`}
+              className={`mb-4 flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} animate-fade-in`}
               style={{ animationDelay: `${index * 50}ms` }}
             >
               <div
-                className={`max-w-[75%] rounded-[20px] px-4 py-2.5 ${
+                className={`max-w-[75%] rounded-[20px] px-5 py-3.5 ${
                   msg.role === 'user'
                     ? 'bg-gradient-to-br from-[#007AFF] to-[#0051D5] text-white shadow-md'
                     : 'bg-[#E9E9EB] dark:bg-[#3A3A3C] text-foreground shadow-sm'
@@ -403,19 +403,19 @@ const Chat = () => {
       </div>
 
       {/* Input Area - Fixed at bottom, above tab bar */}
-      <div className="border-t border-border/50 bg-card/95 backdrop-blur-xl px-4 py-3 flex-shrink-0">
+      <div className="border-t border-border/50 bg-card/95 backdrop-blur-xl px-6 py-4 flex-shrink-0 transition-all duration-300 ease-out">
         <div className="max-w-2xl mx-auto">
           <Button
             onClick={handleGenerateWorkoutPlan}
             disabled={isSending}
-            className="w-full mb-3 h-11 rounded-full bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-lg font-medium transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
+            className="w-full mb-4 h-12 rounded-full bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-lg font-medium transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
           >
             <Zap className="w-4 h-4 mr-2" />
             Generate My Workout Plan
           </Button>
           
-          <div className="flex gap-2 items-end">
-            <div className="flex-1 bg-muted/50 rounded-full px-4 py-1.5 border border-border/30">
+          <div className="flex gap-3 items-end">
+            <div className="flex-1 bg-muted/50 rounded-full px-5 py-2 border border-border/30 transition-all duration-200 focus-within:border-primary/50">
               <Input
                 placeholder="Message..."
                 value={message}
@@ -427,7 +427,7 @@ const Chat = () => {
             </div>
             <Button 
               size="icon" 
-              className="h-9 w-9 rounded-full flex-shrink-0 bg-primary hover:bg-primary/90 shadow-md transition-all duration-200 hover:scale-105 active:scale-95"
+              className="h-10 w-10 rounded-full flex-shrink-0 bg-primary hover:bg-primary/90 shadow-md transition-all duration-200 hover:scale-105 active:scale-95"
               disabled={!message.trim() || isSending}
               onClick={handleSendMessage}
             >

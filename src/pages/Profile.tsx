@@ -49,9 +49,9 @@ const Profile = () => {
   }
 
   return (
-    <div className="h-screen bg-background flex flex-col overflow-hidden">
+    <div className="h-[100dvh] bg-background flex flex-col overflow-hidden transition-all duration-300 ease-out">
       {/* Header */}
-      <div className="bg-gradient-to-br from-primary/10 via-background to-background px-6 pt-12 pb-8 flex-shrink-0" style={{ paddingTop: 'max(3rem, env(safe-area-inset-top))' }}>
+      <div className="bg-gradient-to-br from-primary/10 via-background to-background px-6 pt-12 pb-10 flex-shrink-0" style={{ paddingTop: 'max(3rem, env(safe-area-inset-top))' }}>
         <div className="flex items-center gap-4 mb-4">
           <div className="w-20 h-20 rounded-full bg-primary/20 flex items-center justify-center">
             <UserIcon className="w-10 h-10 text-primary" />
@@ -66,7 +66,7 @@ const Profile = () => {
       </div>
 
       {/* Main Content - Scrollable */}
-      <div className="flex-1 px-6 -mt-4 overflow-y-auto min-h-0" style={{ paddingBottom: 'calc(5rem + max(1rem, env(safe-area-inset-bottom)))' }}>
+      <div className="flex-1 px-6 -mt-6 overflow-y-auto min-h-0" style={{ paddingBottom: 'calc(5rem + max(1rem, env(safe-area-inset-bottom)))' }}>
         {/* Stats Card */}
         <Card className="p-6 mb-4">
           <h3 className="font-semibold mb-4">Your Progress</h3>
@@ -83,7 +83,7 @@ const Profile = () => {
         </Card>
 
         {/* Settings Options */}
-        <div className="space-y-2 mb-4">
+        <div className="space-y-3 mb-6">
           <Button 
             variant="outline" 
             className="w-full h-14 justify-start rounded-xl"
