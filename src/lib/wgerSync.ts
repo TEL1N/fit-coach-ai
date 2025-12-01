@@ -63,6 +63,10 @@ export async function syncWgerExercises(): Promise<{ success: boolean; count: nu
 
     console.log(`Fetched ${allExercises.length} exercises from WGER API`);
 
+    // Filter out exercises without valid names
+    allExercises = allExercises.filter(exercise => exercise.name && exercise.name.trim());
+    console.log(`Filtered to ${allExercises.length} exercises with valid names`);
+
     // Transform and upsert exercises
     const exercisesToInsert = allExercises.map(exercise => ({
       wger_id: exercise.id,
