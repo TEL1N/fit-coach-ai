@@ -32,6 +32,14 @@ const Chat = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
+  const formatMessage = (content: string): string => {
+    // Strip markdown formatting: bold (**), italics (*), and backticks (`)
+    return content
+      .replace(/\*\*(.+?)\*\*/g, '$1') // Remove bold
+      .replace(/\*(.+?)\*/g, '$1')     // Remove italics
+      .replace(/`(.+?)`/g, '$1');      // Remove backticks
+  };
+
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
@@ -242,7 +250,9 @@ const Chat = () => {
                   <span className="text-xs font-medium text-muted-foreground">AI Coach</span>
                 </div>
               )}
-              <p className="text-sm whitespace-pre-wrap break-words">{msg.content}</p>
+              <p className="text-sm whitespace-pre-wrap break-words">
+                {msg.role === 'assistant' ? formatMessage(msg.content) : msg.content}
+              </p>
               <p className="text-xs opacity-70 mt-1">
                 {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </p>
