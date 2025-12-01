@@ -273,12 +273,19 @@ const Workouts = () => {
       </div>
 
       {/* Main Content - Scrollable */}
-      <div className="flex-1 px-6 py-8 overflow-y-auto min-h-0" style={{ paddingBottom: 'calc(5rem + max(1rem, env(safe-area-inset-bottom)))' }}>
+      <div 
+        className="flex-1 px-6 py-8 overflow-y-auto min-h-0" 
+        style={{ 
+          paddingBottom: isEditMode 
+            ? 'calc(5rem + 4rem + max(1rem, env(safe-area-inset-bottom)))' 
+            : 'calc(5rem + max(1rem, env(safe-area-inset-bottom)))' 
+        }}
+      >
         {workoutPlan ? (
           <>
             {/* Plan Header */}
             <div className="mb-6">
-              <div className="flex items-start justify-between mb-3">
+              <div className="flex items-center justify-between mb-3 gap-3">
                 <div className="flex-1">
                   <h2 className="text-2xl font-bold">{workoutPlan.name}</h2>
                 </div>
@@ -286,10 +293,10 @@ const Workouts = () => {
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-10 w-10 rounded-full -mt-1"
+                    className="h-10 w-10 rounded-full bg-primary/10 hover:bg-primary/20 text-primary flex-shrink-0"
                     onClick={() => setIsEditSheetOpen(true)}
                   >
-                    <Pencil className="w-5 h-5" />
+                    <Pencil className="w-4 h-4" />
                   </Button>
                 )}
               </div>
@@ -449,21 +456,23 @@ const Workouts = () => {
         )}
       </div>
 
-      {/* Fixed Edit Mode Actions */}
+      {/* Fixed Edit Mode Actions - Above Tab Bar */}
       {isEditMode && (
         <div 
-          className="fixed bottom-0 left-0 right-0 bg-card border-t border-border px-6 py-4 flex gap-3"
-          style={{ paddingBottom: 'calc(1rem + max(1rem, env(safe-area-inset-bottom)))' }}
+          className="fixed left-0 right-0 bg-card/95 backdrop-blur-xl border-t border-border px-6 py-4 flex gap-3 z-40"
+          style={{ 
+            bottom: 'calc(4rem + env(safe-area-inset-bottom))',
+          }}
         >
           <Button
             variant="outline"
-            className="flex-1 h-12 rounded-xl"
+            className="flex-1 h-12 rounded-xl font-medium"
             onClick={handleCancelEdit}
           >
             Cancel
           </Button>
           <Button
-            className="flex-1 h-12 rounded-xl"
+            className="flex-1 h-12 rounded-xl font-medium"
             onClick={handleSaveChanges}
           >
             Save Changes
