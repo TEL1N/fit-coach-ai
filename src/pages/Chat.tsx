@@ -95,14 +95,6 @@ const Chat = () => {
     scrollToBottom();
   }, [messages]);
 
-  // Handle navigation from Workouts page with conversation ID
-  useEffect(() => {
-    const state = location.state as { conversationId?: string };
-    if (state?.conversationId) {
-      loadConversation(state.conversationId);
-    }
-  }, [location.state]);
-
   const loadConversation = async (convId: string) => {
     setIsLoading(true);
     
@@ -145,6 +137,15 @@ const Chat = () => {
 
   useEffect(() => {
     const initializeChat = async () => {
+      // Check if we're navigating from Workouts with a conversation ID
+      const state = location.state as { conversationId?: string };
+      if (state?.conversationId) {
+        await loadConversation(state.conversationId);
+        // Clear the location state after loading
+        window.history.replaceState({}, document.title);
+        return;
+      }
+
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
         navigate("/auth");
