@@ -4,7 +4,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import MobileTabBar from "@/components/MobileTabBar";
-import { Calendar, Clock, Dumbbell, Plus, ChevronDown, ChevronUp, MessageSquare } from "lucide-react";
+import EditPlanBottomSheet from "@/components/EditPlanBottomSheet";
+import ExerciseEditCard from "@/components/ExerciseEditCard";
+import { Calendar, Clock, Dumbbell, Plus, ChevronDown, ChevronUp, MessageSquare, Pencil } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 import {
   Collapsible,
   CollapsibleContent,
@@ -38,9 +41,14 @@ interface WorkoutPlan {
 
 const Workouts = () => {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(true);
   const [workoutPlan, setWorkoutPlan] = useState<WorkoutPlan | null>(null);
   const [expandedDays, setExpandedDays] = useState<Set<string>>(new Set());
+  const [isEditSheetOpen, setIsEditSheetOpen] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editingExerciseId, setEditingExerciseId] = useState<string | null>(null);
+  const [originalPlan, setOriginalPlan] = useState<WorkoutPlan | null>(null);
 
   const toggleDay = (dayId: string) => {
     setExpandedDays(prev => {
@@ -52,6 +60,124 @@ const Workouts = () => {
       }
       return newSet;
     });
+  };
+
+  const handleEditWithAI = () => {
+    setIsEditSheetOpen(false);
+    if (workoutPlan?.conversationId) {
+      navigate("/chat", { state: { conversationId: workoutPlan.conversationId } });
+    }
+  };
+
+  const handleEditManually = () => {
+    setIsEditSheetOpen(false);
+    setIsEditMode(true);
+    setOriginalPlan(workoutPlan);
+    // Expand all days for easier editing
+    if (workoutPlan) {
+      setExpandedDays(new Set(workoutPlan.days.map(d => d.id)));
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditMode(false);
+    setEditingExerciseId(null);
+    setWorkoutPlan(originalPlan);
+    setOriginalPlan(null);
+  };
+
+  const handleSaveChanges = async () => {
+    if (!workoutPlan) return;
+
+    try {
+      // Update each exercise in the database
+      for (const day of workoutPlan.days) {
+        for (const exercise of day.exercises) {
+          await supabase
+            .from('workout_exercises')
+            .update({
+              exercise_name: exercise.exercise_name,
+              sets: exercise.sets,
+              reps: exercise.reps,
+              rest_seconds: exercise.rest_seconds,
+              notes: exercise.notes,
+            })
+            .eq('id', exercise.id);
+        }
+      }
+
+      toast({
+        title: "Changes saved",
+        description: "Your workout plan has been updated successfully.",
+      });
+
+      setIsEditMode(false);
+      setEditingExerciseId(null);
+      setOriginalPlan(null);
+    } catch (error) {
+      console.error('Error saving changes:', error);
+      toast({
+        title: "Error",
+        description: "Failed to save changes. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleUpdateExercise = (dayId: string, exerciseId: string, updates: Partial<Exercise>) => {
+    setWorkoutPlan(prev => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        days: prev.days.map(day =>
+          day.id === dayId
+            ? {
+                ...day,
+                exercises: day.exercises.map(ex =>
+                  ex.id === exerciseId ? { ...ex, ...updates } : ex
+                )
+              }
+            : day
+        )
+      };
+    });
+    setEditingExerciseId(null);
+  };
+
+  const handleDeleteExercise = async (dayId: string, exerciseId: string) => {
+    try {
+      await supabase
+        .from('workout_exercises')
+        .delete()
+        .eq('id', exerciseId);
+
+      setWorkoutPlan(prev => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          days: prev.days.map(day =>
+            day.id === dayId
+              ? {
+                  ...day,
+                  exercises: day.exercises.filter(ex => ex.id !== exerciseId)
+                }
+              : day
+          )
+        };
+      });
+
+      toast({
+        title: "Exercise deleted",
+        description: "The exercise has been removed from your plan.",
+      });
+    } catch (error) {
+      console.error('Error deleting exercise:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete exercise. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   useEffect(() => {
@@ -152,23 +278,23 @@ const Workouts = () => {
           <>
             {/* Plan Header */}
             <div className="mb-6">
-              <h2 className="text-2xl font-bold mb-3">{workoutPlan.name}</h2>
+              <div className="flex items-start justify-between mb-3">
+                <div className="flex-1">
+                  <h2 className="text-2xl font-bold">{workoutPlan.name}</h2>
+                </div>
+                {!isEditMode && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-10 w-10 rounded-full -mt-1"
+                    onClick={() => setIsEditSheetOpen(true)}
+                  >
+                    <Pencil className="w-5 h-5" />
+                  </Button>
+                )}
+              </div>
               {workoutPlan.description && (
-                <p className="text-muted-foreground mb-4">{workoutPlan.description}</p>
-              )}
-              
-              {/* Edit with AI button */}
-              {workoutPlan.conversationId && (
-                <Button
-                  variant="outline"
-                  className="w-full h-11 rounded-xl mt-4"
-                  onClick={() => navigate("/chat", { 
-                    state: { conversationId: workoutPlan.conversationId } 
-                  })}
-                >
-                  <MessageSquare className="w-4 h-4 mr-2" />
-                  Edit with AI Coach
-                </Button>
+                <p className="text-muted-foreground">{workoutPlan.description}</p>
               )}
             </div>
 
@@ -207,39 +333,94 @@ const Workouts = () => {
                         {day.exercises.map((exercise, idx) => (
                           <div
                             key={exercise.id}
-                            className={`p-4 ${idx !== day.exercises.length - 1 ? 'border-b border-border' : ''}`}
+                            className={`${idx !== day.exercises.length - 1 ? 'border-b border-border' : ''}`}
                           >
-                            <div className="flex gap-3">
-                              {/* Placeholder for exercise image */}
-                              <div className="w-16 h-16 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
-                                <Dumbbell className="w-6 h-6 text-muted-foreground" />
-                              </div>
-                              
-                              <div className="flex-1">
-                                <h4 className="font-semibold text-base mb-1">
-                                  {exercise.exercise_name || `Exercise ${exercise.exercise_order}`}
-                                </h4>
-                                <div className="flex items-center gap-3 text-sm mb-1">
-                                  {exercise.sets && exercise.reps && (
-                                    <span className="font-medium">
-                                      {exercise.sets} × {exercise.reps}
-                                    </span>
-                                  )}
-                                  {exercise.rest_seconds && (
-                                    <span className="text-muted-foreground">
-                                      {exercise.rest_seconds} sec rest
-                                    </span>
-                                  )}
+                            {isEditMode ? (
+                              <ExerciseEditCard
+                                exercise={exercise}
+                                isEditing={editingExerciseId === exercise.id}
+                                onEdit={() => setEditingExerciseId(exercise.id)}
+                                onSave={(updates) => handleUpdateExercise(day.id, exercise.id, updates)}
+                                onCancel={() => setEditingExerciseId(null)}
+                                onDelete={() => handleDeleteExercise(day.id, exercise.id)}
+                              />
+                            ) : (
+                              <div className="p-4">
+                                <div className="flex gap-3">
+                                  <div className="w-16 h-16 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
+                                    <Dumbbell className="w-6 h-6 text-muted-foreground" />
+                                  </div>
+                                  
+                                  <div className="flex-1">
+                                    <h4 className="font-semibold text-base mb-1">
+                                      {exercise.exercise_name || `Exercise ${exercise.exercise_order}`}
+                                    </h4>
+                                    <div className="flex items-center gap-3 text-sm mb-1">
+                                      {exercise.sets && exercise.reps && (
+                                        <span className="font-medium">
+                                          {exercise.sets} × {exercise.reps}
+                                        </span>
+                                      )}
+                                      {exercise.rest_seconds && (
+                                        <span className="text-muted-foreground">
+                                          {exercise.rest_seconds} sec rest
+                                        </span>
+                                      )}
+                                    </div>
+                                    {exercise.notes && (
+                                      <p className="text-sm text-muted-foreground mt-2">
+                                        {exercise.notes}
+                                      </p>
+                                    )}
+                                  </div>
                                 </div>
-                                {exercise.notes && (
-                                  <p className="text-sm text-muted-foreground mt-2">
-                                    {exercise.notes}
-                                  </p>
-                                )}
                               </div>
-                            </div>
+                            )}
                           </div>
                         ))}
+                        
+                        {/* Add Exercise Button - Only in Edit Mode */}
+                        {isEditMode && (
+                          <div className="p-4 border-t border-border">
+                            <Button
+                              variant="outline"
+                              className="w-full h-12 rounded-xl border-dashed"
+                              onClick={async () => {
+                                const newOrder = day.exercises.length + 1;
+                                const { data: newExercise } = await supabase
+                                  .from('workout_exercises')
+                                  .insert({
+                                    workout_day_id: day.id,
+                                    exercise_name: 'New Exercise',
+                                    exercise_order: newOrder,
+                                    sets: 3,
+                                    reps: '10',
+                                    rest_seconds: 60,
+                                  })
+                                  .select()
+                                  .single();
+
+                                if (newExercise) {
+                                  setWorkoutPlan(prev => {
+                                    if (!prev) return prev;
+                                    return {
+                                      ...prev,
+                                      days: prev.days.map(d =>
+                                        d.id === day.id
+                                          ? { ...d, exercises: [...d.exercises, newExercise as Exercise] }
+                                          : d
+                                      )
+                                    };
+                                  });
+                                  setEditingExerciseId(newExercise.id);
+                                }
+                              }}
+                            >
+                              <Plus className="w-4 h-4 mr-2" />
+                              Add Exercise
+                            </Button>
+                          </div>
+                        )}
                       </div>
                     </CollapsibleContent>
                   </Card>
@@ -267,6 +448,35 @@ const Workouts = () => {
           </Card>
         )}
       </div>
+
+      {/* Fixed Edit Mode Actions */}
+      {isEditMode && (
+        <div 
+          className="fixed bottom-0 left-0 right-0 bg-card border-t border-border px-6 py-4 flex gap-3"
+          style={{ paddingBottom: 'calc(1rem + max(1rem, env(safe-area-inset-bottom)))' }}
+        >
+          <Button
+            variant="outline"
+            className="flex-1 h-12 rounded-xl"
+            onClick={handleCancelEdit}
+          >
+            Cancel
+          </Button>
+          <Button
+            className="flex-1 h-12 rounded-xl"
+            onClick={handleSaveChanges}
+          >
+            Save Changes
+          </Button>
+        </div>
+      )}
+
+      <EditPlanBottomSheet
+        isOpen={isEditSheetOpen}
+        onClose={() => setIsEditSheetOpen(false)}
+        onEditWithAI={handleEditWithAI}
+        onEditManually={handleEditManually}
+      />
 
       <MobileTabBar />
     </div>
