@@ -107,9 +107,12 @@ const Onboarding = () => {
   ];
 
   const experiences = [
-    { value: "beginner", label: "Beginner", desc: "Just starting out", icon: "🌱" },
-    { value: "intermediate", label: "Intermediate", desc: "Regular gym-goer", icon: "📈" },
-    { value: "advanced", label: "Advanced", desc: "Years of training", icon: "🔥" },
+    { value: "complete_beginner", label: "Complete Beginner", desc: "Never worked out before", icon: "🌱" },
+    { value: "returning", label: "Returning After Break", desc: "Had experience, getting back into it", icon: "🔄" },
+    { value: "occasional", label: "Occasional Exerciser", desc: "Work out sometimes, not consistent", icon: "🎯" },
+    { value: "regular", label: "Regular Gym-Goer", desc: "Consistent training, know the basics", icon: "💪" },
+    { value: "experienced", label: "Experienced Lifter", desc: "Years of consistent training", icon: "📈" },
+    { value: "advanced", label: "Advanced Athlete", desc: "Competitive level or very advanced", icon: "🔥" },
   ];
 
   const equipmentOptions = [
@@ -195,22 +198,23 @@ const Onboarding = () => {
 
           {/* Screen 3 - Experience Level */}
           <div className="w-full flex-shrink-0 px-6 py-8 flex flex-col">
-            <h2 className="text-3xl font-bold mb-8">What's your experience level?</h2>
-            <div className="space-y-4 flex-1">
+            <h2 className="text-3xl font-bold mb-4">What's your experience level?</h2>
+            <p className="text-muted-foreground mb-6">Choose what best describes you</p>
+            <div className="space-y-3 flex-1 overflow-y-auto">
               {experiences.map((exp) => (
                 <Card
                   key={exp.value}
-                  className={`p-6 cursor-pointer transition-all ${
+                  className={`p-5 cursor-pointer transition-all ${
                     experienceLevel === exp.value
                       ? "border-primary border-2 bg-primary/5"
                       : "hover:bg-accent"
                   }`}
                   onClick={() => setExperienceLevel(exp.value)}
                 >
-                  <div className="flex items-start gap-4">
-                    <span className="text-4xl">{exp.icon}</span>
+                  <div className="flex items-start gap-3">
+                    <span className="text-3xl">{exp.icon}</span>
                     <div>
-                      <p className="text-lg font-semibold mb-1">{exp.label}</p>
+                      <p className="text-base font-semibold mb-1">{exp.label}</p>
                       <p className="text-sm text-muted-foreground">{exp.desc}</p>
                     </div>
                   </div>
