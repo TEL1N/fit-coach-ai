@@ -245,6 +245,7 @@ export type Database = {
         Row: {
           created_at: string
           exercise_id: string | null
+          exercise_name: string | null
           exercise_order: number
           id: string
           notes: string | null
@@ -256,6 +257,7 @@ export type Database = {
         Insert: {
           created_at?: string
           exercise_id?: string | null
+          exercise_name?: string | null
           exercise_order: number
           id?: string
           notes?: string | null
@@ -267,6 +269,7 @@ export type Database = {
         Update: {
           created_at?: string
           exercise_id?: string | null
+          exercise_name?: string | null
           exercise_order?: number
           id?: string
           notes?: string | null

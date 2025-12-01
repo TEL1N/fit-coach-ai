@@ -14,6 +14,7 @@ import {
 interface Exercise {
   id: string;
   exercise_order: number;
+  exercise_name: string | null;
   sets: number | null;
   reps: string | null;
   rest_seconds: number | null;
@@ -192,7 +193,7 @@ const Workouts = () => {
                               
                               <div className="flex-1">
                                 <h4 className="font-semibold text-base mb-1">
-                                  Exercise {exercise.exercise_order}
+                                  {exercise.exercise_name || `Exercise ${exercise.exercise_order}`}
                                 </h4>
                                 <div className="flex items-center gap-3 text-sm mb-1">
                                   {exercise.sets && exercise.reps && (
