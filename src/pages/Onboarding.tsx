@@ -158,7 +158,7 @@ const Onboarding = () => {
           style={{ transform: `translateX(-${currentStep * 100}%)` }}
         >
           {/* Screen 1 - Welcome */}
-          <div className="w-full flex-shrink-0 px-6 py-8 flex flex-col">
+          <div className="w-full flex-shrink-0 px-6 py-8 flex flex-col overflow-y-auto">
             <div 
               className="w-full h-64 rounded-3xl mb-8 overflow-hidden"
               style={{
@@ -174,9 +174,9 @@ const Onboarding = () => {
           </div>
 
           {/* Screen 2 - Fitness Goal */}
-          <div className="w-full flex-shrink-0 px-6 py-8 flex flex-col">
-            <h2 className="text-3xl font-bold mb-8">What's your primary goal?</h2>
-            <div className="space-y-3 flex-1 overflow-y-auto">
+          <div className="w-full flex-shrink-0 px-6 py-8 flex flex-col overflow-y-auto">
+            <h2 className="text-3xl font-bold mb-6">What's your primary goal?</h2>
+            <div className="space-y-3 pb-4">
               {goals.map((goal) => (
                 <Card
                   key={goal.value}
@@ -197,10 +197,10 @@ const Onboarding = () => {
           </div>
 
           {/* Screen 3 - Experience Level */}
-          <div className="w-full flex-shrink-0 px-6 py-8 flex flex-col">
-            <h2 className="text-3xl font-bold mb-4">What's your experience level?</h2>
-            <p className="text-muted-foreground mb-6">Choose what best describes you</p>
-            <div className="space-y-3 flex-1 overflow-y-auto">
+          <div className="w-full flex-shrink-0 px-6 py-8 flex flex-col overflow-y-auto">
+            <h2 className="text-3xl font-bold mb-6">What's your experience level?</h2>
+            <p className="text-muted-foreground mb-4">Choose what best describes you</p>
+            <div className="space-y-3 pb-4">
               {experiences.map((exp) => (
                 <Card
                   key={exp.value}
@@ -224,10 +224,10 @@ const Onboarding = () => {
           </div>
 
           {/* Screen 4 - Equipment */}
-          <div className="w-full flex-shrink-0 px-6 py-8 flex flex-col">
+          <div className="w-full flex-shrink-0 px-6 py-8 flex flex-col overflow-y-auto">
             <h2 className="text-3xl font-bold mb-4">What equipment do you have?</h2>
-            <p className="text-muted-foreground mb-6">Select all that apply</p>
-            <div className="space-y-3 flex-1 overflow-y-auto">
+            <p className="text-muted-foreground mb-4">Select all that apply</p>
+            <div className="space-y-3 pb-4">
               {equipmentOptions.map((item) => {
                 const isDisabled = 
                   (equipment.includes("full_gym") && item.value !== "full_gym") ||
@@ -261,10 +261,10 @@ const Onboarding = () => {
           </div>
 
           {/* Screen 5 - Schedule & Limitations */}
-          <div className="w-full flex-shrink-0 px-6 py-8 flex flex-col">
+          <div className="w-full flex-shrink-0 px-6 py-8 flex flex-col overflow-y-auto">
             <h2 className="text-3xl font-bold mb-8">Final details</h2>
             
-            <div className="space-y-8 flex-1">
+            <div className="space-y-6 pb-4">
               <div>
                 <p className="text-lg font-semibold mb-4">
                   How often can you workout?
