@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import MobileTabBar from "@/components/MobileTabBar";
-import { Calendar, Clock, Dumbbell, Plus, ChevronDown, ChevronUp } from "lucide-react";
+import { Calendar, Clock, Dumbbell, Plus, ChevronDown, ChevronUp, MessageSquare } from "lucide-react";
 import {
   Collapsible,
   CollapsibleContent,
@@ -33,6 +33,7 @@ interface WorkoutPlan {
   name: string;
   description: string | null;
   days: WorkoutDay[];
+  conversationId?: string;
 }
 
 const Workouts = () => {
@@ -73,6 +74,14 @@ const Workouts = () => {
       if (plans && plans.length > 0) {
         const plan = plans[0];
         
+        // Find the conversation that created this plan
+        const { data: conversation } = await supabase
+          .from('conversations')
+          .select('id')
+          .eq('workout_plan_id', plan.id)
+          .eq('user_id', session.user.id)
+          .single();
+        
         // Load workout days
         const { data: days } = await supabase
           .from('workout_days')
@@ -101,7 +110,8 @@ const Workouts = () => {
             id: plan.id,
             name: plan.name,
             description: plan.description,
-            days: daysWithExercises
+            days: daysWithExercises,
+            conversationId: conversation?.id
           });
         }
       }
@@ -141,10 +151,24 @@ const Workouts = () => {
         {workoutPlan ? (
           <>
             {/* Plan Header */}
-            <div className="mb-8">
+            <div className="mb-6">
               <h2 className="text-2xl font-bold mb-3">{workoutPlan.name}</h2>
               {workoutPlan.description && (
-                <p className="text-muted-foreground">{workoutPlan.description}</p>
+                <p className="text-muted-foreground mb-4">{workoutPlan.description}</p>
+              )}
+              
+              {/* Edit with AI button */}
+              {workoutPlan.conversationId && (
+                <Button
+                  variant="outline"
+                  className="w-full h-11 rounded-xl mt-4"
+                  onClick={() => navigate("/chat", { 
+                    state: { conversationId: workoutPlan.conversationId } 
+                  })}
+                >
+                  <MessageSquare className="w-4 h-4 mr-2" />
+                  Edit with AI Coach
+                </Button>
               )}
             </div>
 
