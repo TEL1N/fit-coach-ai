@@ -58,17 +58,17 @@ const Home = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background pb-20">
+    <div className="h-screen bg-background flex flex-col overflow-hidden">
       {/* Header */}
-      <div className="bg-gradient-to-br from-primary/10 via-background to-background px-6 pt-12 pb-8 safe-area-top">
+      <div className="bg-gradient-to-br from-primary/10 via-background to-background px-6 pt-12 pb-8 flex-shrink-0" style={{ paddingTop: 'max(3rem, env(safe-area-inset-top))' }}>
         <h1 className="text-3xl font-bold mb-2">Welcome back!</h1>
         <p className="text-muted-foreground">
           {user?.email?.split("@")[0] || "Fitness enthusiast"}
         </p>
       </div>
 
-      {/* Main Content */}
-      <div className="px-6 -mt-4">
+      {/* Main Content - Scrollable */}
+      <div className="flex-1 px-6 -mt-4 overflow-y-auto min-h-0" style={{ paddingBottom: 'calc(5rem + max(1rem, env(safe-area-inset-bottom)))' }}>
         {/* Stats Cards */}
         <div className="grid grid-cols-3 gap-3 mb-6">
           <Card className="p-4 text-center">

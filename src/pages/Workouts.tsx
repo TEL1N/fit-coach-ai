@@ -128,15 +128,15 @@ const Workouts = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background pb-20">
+    <div className="h-screen bg-background flex flex-col overflow-hidden">
       {/* Header */}
-      <div className="bg-card border-b border-border px-6 py-4 safe-area-top">
+      <div className="bg-card border-b border-border px-6 py-4 flex-shrink-0" style={{ paddingTop: 'max(1rem, env(safe-area-inset-top))' }}>
         <h1 className="text-2xl font-bold">My Workouts</h1>
         <p className="text-sm text-muted-foreground">Your personalized training plans</p>
       </div>
 
-      {/* Main Content */}
-      <div className="px-6 py-6">
+      {/* Main Content - Scrollable */}
+      <div className="flex-1 px-6 py-6 overflow-y-auto min-h-0" style={{ paddingBottom: 'calc(5rem + max(1rem, env(safe-area-inset-bottom)))' }}>
         {workoutPlan ? (
           <>
             {/* Plan Header */}
