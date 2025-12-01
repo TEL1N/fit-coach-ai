@@ -14,7 +14,314 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      conversations: {
+        Row: {
+          created_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      exercise_aliases: {
+        Row: {
+          alias: string
+          confidence_score: number | null
+          created_at: string
+          exercise_id: string
+          id: string
+        }
+        Insert: {
+          alias: string
+          confidence_score?: number | null
+          created_at?: string
+          exercise_id: string
+          id?: string
+        }
+        Update: {
+          alias?: string
+          confidence_score?: number | null
+          created_at?: string
+          exercise_id?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exercise_aliases_exercise_id_fkey"
+            columns: ["exercise_id"]
+            isOneToOne: false
+            referencedRelation: "exercises"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      exercise_logs: {
+        Row: {
+          completed_at: string
+          id: string
+          notes: string | null
+          sets_completed: number | null
+          user_id: string
+          workout_exercise_id: string | null
+        }
+        Insert: {
+          completed_at?: string
+          id?: string
+          notes?: string | null
+          sets_completed?: number | null
+          user_id: string
+          workout_exercise_id?: string | null
+        }
+        Update: {
+          completed_at?: string
+          id?: string
+          notes?: string | null
+          sets_completed?: number | null
+          user_id?: string
+          workout_exercise_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exercise_logs_workout_exercise_id_fkey"
+            columns: ["workout_exercise_id"]
+            isOneToOne: false
+            referencedRelation: "workout_exercises"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      exercises: {
+        Row: {
+          category: string | null
+          created_at: string
+          description: string | null
+          equipment: string[] | null
+          id: string
+          image_urls: string[] | null
+          muscles: string[] | null
+          name: string
+          name_normalized: string
+          wger_id: number
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          description?: string | null
+          equipment?: string[] | null
+          id?: string
+          image_urls?: string[] | null
+          muscles?: string[] | null
+          name: string
+          name_normalized: string
+          wger_id: number
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          description?: string | null
+          equipment?: string[] | null
+          id?: string
+          image_urls?: string[] | null
+          muscles?: string[] | null
+          name?: string
+          name_normalized?: string
+          wger_id?: number
+        }
+        Relationships: []
+      }
+      messages: {
+        Row: {
+          content: string
+          conversation_id: string
+          created_at: string
+          id: string
+          role: string
+        }
+        Insert: {
+          content: string
+          conversation_id: string
+          created_at?: string
+          id?: string
+          role: string
+        }
+        Update: {
+          content?: string
+          conversation_id?: string
+          created_at?: string
+          id?: string
+          role?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_fitness_profiles: {
+        Row: {
+          available_equipment: string[] | null
+          created_at: string
+          experience_level: string | null
+          fitness_goal: string | null
+          id: string
+          limitations: string | null
+          updated_at: string
+          user_id: string
+          workout_frequency: number | null
+        }
+        Insert: {
+          available_equipment?: string[] | null
+          created_at?: string
+          experience_level?: string | null
+          fitness_goal?: string | null
+          id?: string
+          limitations?: string | null
+          updated_at?: string
+          user_id: string
+          workout_frequency?: number | null
+        }
+        Update: {
+          available_equipment?: string[] | null
+          created_at?: string
+          experience_level?: string | null
+          fitness_goal?: string | null
+          id?: string
+          limitations?: string | null
+          updated_at?: string
+          user_id?: string
+          workout_frequency?: number | null
+        }
+        Relationships: []
+      }
+      workout_days: {
+        Row: {
+          created_at: string
+          day_name: string
+          day_order: number
+          id: string
+          week_number: number | null
+          workout_plan_id: string
+        }
+        Insert: {
+          created_at?: string
+          day_name: string
+          day_order: number
+          id?: string
+          week_number?: number | null
+          workout_plan_id: string
+        }
+        Update: {
+          created_at?: string
+          day_name?: string
+          day_order?: number
+          id?: string
+          week_number?: number | null
+          workout_plan_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workout_days_workout_plan_id_fkey"
+            columns: ["workout_plan_id"]
+            isOneToOne: false
+            referencedRelation: "workout_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workout_exercises: {
+        Row: {
+          created_at: string
+          exercise_id: string | null
+          exercise_order: number
+          id: string
+          notes: string | null
+          reps: string | null
+          rest_seconds: number | null
+          sets: number | null
+          workout_day_id: string
+        }
+        Insert: {
+          created_at?: string
+          exercise_id?: string | null
+          exercise_order: number
+          id?: string
+          notes?: string | null
+          reps?: string | null
+          rest_seconds?: number | null
+          sets?: number | null
+          workout_day_id: string
+        }
+        Update: {
+          created_at?: string
+          exercise_id?: string | null
+          exercise_order?: number
+          id?: string
+          notes?: string | null
+          reps?: string | null
+          rest_seconds?: number | null
+          sets?: number | null
+          workout_day_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workout_exercises_exercise_id_fkey"
+            columns: ["exercise_id"]
+            isOneToOne: false
+            referencedRelation: "exercises"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workout_exercises_workout_day_id_fkey"
+            columns: ["workout_day_id"]
+            isOneToOne: false
+            referencedRelation: "workout_days"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workout_plans: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          user_id: string
+          weeks_duration: number | null
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          user_id: string
+          weeks_duration?: number | null
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          user_id?: string
+          weeks_duration?: number | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
