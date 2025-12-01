@@ -13,14 +13,30 @@ const Home = () => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    const checkUserAndProfile = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      
       if (session?.user) {
         setUser(session.user);
+        
+        // Check if user has completed onboarding
+        const { data: profile } = await supabase
+          .from("user_fitness_profiles")
+          .select("id")
+          .eq("user_id", session.user.id)
+          .single();
+        
+        if (!profile) {
+          navigate("/onboarding");
+          return;
+        }
       } else {
         navigate("/auth");
       }
       setIsLoading(false);
-    });
+    };
+
+    checkUserAndProfile();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (session?.user) {
