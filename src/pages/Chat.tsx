@@ -328,6 +328,7 @@ const Chat = () => {
                 .insert({
                   workout_day_id: workoutDay.id,
                   exercise_id: null, // Will link to WGER exercises later
+                  exercise_name: exercise.name, // Store the exercise name
                   exercise_order: exercise.exercise_order || i + 1,
                   sets: exercise.sets,
                   reps: exercise.reps,
