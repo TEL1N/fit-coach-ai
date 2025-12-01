@@ -1,11 +1,10 @@
 import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import MobileTabBar from "@/components/MobileTabBar";
-import { Send, Sparkles, Zap } from "lucide-react";
+import { Send, Zap } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { sendClaudeMessage } from "@/lib/claudeService";
 import { getFitnessCoachSystemPrompt } from "@/lib/fitnessCoachPrompt";
@@ -27,6 +26,7 @@ const Chat = () => {
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [userProfile, setUserProfile] = useState<any>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -38,6 +38,54 @@ const Chat = () => {
       .replace(/\*\*(.+?)\*\*/g, '$1') // Remove bold
       .replace(/\*(.+?)\*/g, '$1')     // Remove italics
       .replace(/`(.+?)`/g, '$1');      // Remove backticks
+  };
+
+  // Initialize audio context
+  useEffect(() => {
+    audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+    return () => {
+      audioContextRef.current?.close();
+    };
+  }, []);
+
+  // Subtle swoosh sound for sending messages
+  const playSendSound = () => {
+    if (!audioContextRef.current) return;
+    const ctx = audioContextRef.current;
+    const oscillator = ctx.createOscillator();
+    const gainNode = ctx.createGain();
+    
+    oscillator.connect(gainNode);
+    gainNode.connect(ctx.destination);
+    
+    oscillator.frequency.setValueAtTime(800, ctx.currentTime);
+    oscillator.frequency.exponentialRampToValueAtTime(400, ctx.currentTime + 0.1);
+    
+    gainNode.gain.setValueAtTime(0.1, ctx.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.1);
+    
+    oscillator.start(ctx.currentTime);
+    oscillator.stop(ctx.currentTime + 0.1);
+  };
+
+  // Soft pop sound for receiving messages
+  const playReceiveSound = () => {
+    if (!audioContextRef.current) return;
+    const ctx = audioContextRef.current;
+    const oscillator = ctx.createOscillator();
+    const gainNode = ctx.createGain();
+    
+    oscillator.connect(gainNode);
+    gainNode.connect(ctx.destination);
+    
+    oscillator.frequency.setValueAtTime(600, ctx.currentTime);
+    oscillator.frequency.exponentialRampToValueAtTime(800, ctx.currentTime + 0.08);
+    
+    gainNode.gain.setValueAtTime(0.08, ctx.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.08);
+    
+    oscillator.start(ctx.currentTime);
+    oscillator.stop(ctx.currentTime + 0.08);
   };
 
   useEffect(() => {
@@ -146,6 +194,9 @@ const Chat = () => {
     const userMessage = message.trim();
     setMessage("");
     setIsSending(true);
+    
+    // Play send sound
+    playSendSound();
 
     try {
       // Add user message to UI
@@ -187,6 +238,8 @@ const Chat = () => {
 
       if (aiMsg) {
         setMessages(prev => [...prev, aiMsg as Message]);
+        // Play receive sound
+        playReceiveSound();
       }
 
       // Check if response contains JSON workout plan
@@ -224,87 +277,84 @@ const Chat = () => {
 
   return (
     <div className="min-h-screen bg-background pb-20 flex flex-col">
-      {/* Header */}
-      <div className="bg-card border-b border-border px-6 py-4">
-        <h1 className="text-2xl font-bold">AI Coach</h1>
-        <p className="text-sm text-muted-foreground">Your personal fitness assistant</p>
-      </div>
-
       {/* Messages Area */}
-      <div className="flex-1 px-6 py-6 overflow-y-auto">
-        {messages.map((msg) => (
-          <div
-            key={msg.id}
-            className={`mb-4 flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-          >
+      <div className="flex-1 px-4 py-6 overflow-y-auto">
+        <div className="max-w-2xl mx-auto">
+          {messages.map((msg, index) => (
             <div
-              className={`max-w-[80%] rounded-2xl px-4 py-3 ${
-                msg.role === 'user'
-                  ? 'bg-primary text-primary-foreground'
-                  : 'bg-muted'
-              }`}
+              key={msg.id}
+              className={`mb-3 flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} animate-fade-in`}
+              style={{ animationDelay: `${index * 50}ms` }}
             >
-              {msg.role === 'assistant' && (
-                <div className="flex items-center gap-2 mb-1">
-                  <Sparkles className="w-4 h-4 text-primary" />
-                  <span className="text-xs font-medium text-muted-foreground">AI Coach</span>
-                </div>
-              )}
-              <p className="text-sm whitespace-pre-wrap break-words">
-                {msg.role === 'assistant' ? formatMessage(msg.content) : msg.content}
-              </p>
-              <p className="text-xs opacity-70 mt-1">
-                {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-              </p>
+              <div
+                className={`max-w-[75%] rounded-[20px] px-4 py-2.5 ${
+                  msg.role === 'user'
+                    ? 'bg-gradient-to-br from-[#007AFF] to-[#0051D5] text-white shadow-md'
+                    : 'bg-[#E9E9EB] dark:bg-[#3A3A3C] text-foreground shadow-sm'
+                }`}
+              >
+                <p className="text-[15px] leading-relaxed whitespace-pre-wrap break-words font-normal">
+                  {msg.role === 'assistant' ? formatMessage(msg.content) : msg.content}
+                </p>
+                <p className={`text-[11px] mt-1 ${
+                  msg.role === 'user' 
+                    ? 'text-white/70' 
+                    : 'text-muted-foreground/60'
+                }`}>
+                  {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </p>
+              </div>
             </div>
-          </div>
-        ))}
+          ))}
 
-        {isSending && (
-          <div className="mb-4 flex justify-start">
-            <div className="max-w-[80%] rounded-2xl px-4 py-3 bg-muted">
-              <div className="flex items-center gap-2">
-                <div className="flex gap-1">
-                  <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                  <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                  <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+          {isSending && (
+            <div className="mb-3 flex justify-start animate-fade-in">
+              <div className="max-w-[75%] rounded-[20px] px-4 py-3 bg-[#E9E9EB] dark:bg-[#3A3A3C] shadow-sm">
+                <div className="flex items-center gap-1.5">
+                  <div className="w-2 h-2 bg-muted-foreground/60 rounded-full animate-bounce" style={{ animationDelay: '0ms', animationDuration: '1s' }}></div>
+                  <div className="w-2 h-2 bg-muted-foreground/60 rounded-full animate-bounce" style={{ animationDelay: '200ms', animationDuration: '1s' }}></div>
+                  <div className="w-2 h-2 bg-muted-foreground/60 rounded-full animate-bounce" style={{ animationDelay: '400ms', animationDuration: '1s' }}></div>
                 </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
 
-        <div ref={messagesEndRef} />
+          <div ref={messagesEndRef} />
+        </div>
       </div>
 
       {/* Input Area */}
-      <div className="border-t border-border bg-card px-6 py-4">
-        <Button
-          onClick={handleGenerateWorkoutPlan}
-          disabled={isSending}
-          className="w-full mb-3 h-12 rounded-xl bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70"
-        >
-          <Zap className="w-5 h-5 mr-2" />
-          Generate My Workout Plan
-        </Button>
-        
-        <div className="flex gap-2">
-          <Input
-            placeholder="Message your AI coach..."
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-            className="h-12 rounded-xl"
+      <div className="border-t border-border/50 bg-card/95 backdrop-blur-xl px-4 py-3 safe-area-bottom">
+        <div className="max-w-2xl mx-auto">
+          <Button
+            onClick={handleGenerateWorkoutPlan}
             disabled={isSending}
-          />
-          <Button 
-            size="icon" 
-            className="h-12 w-12 rounded-xl flex-shrink-0"
-            disabled={!message.trim() || isSending}
-            onClick={handleSendMessage}
+            className="w-full mb-3 h-11 rounded-full bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-lg font-medium transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
           >
-            <Send className="w-5 h-5" />
+            <Zap className="w-4 h-4 mr-2" />
+            Generate My Workout Plan
           </Button>
+          
+          <div className="flex gap-2 items-end">
+            <div className="flex-1 bg-muted/50 rounded-full px-4 py-1.5 border border-border/30">
+              <Input
+                placeholder="Message..."
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+                className="border-0 bg-transparent h-9 px-0 text-[15px] placeholder:text-muted-foreground/50 focus-visible:ring-0 focus-visible:ring-offset-0"
+                disabled={isSending}
+              />
+            </div>
+            <Button 
+              size="icon" 
+              className="h-9 w-9 rounded-full flex-shrink-0 bg-primary hover:bg-primary/90 shadow-md transition-all duration-200 hover:scale-105 active:scale-95"
+              disabled={!message.trim() || isSending}
+              onClick={handleSendMessage}
+            >
+              <Send className="w-4 h-4" />
+            </Button>
+          </div>
         </div>
       </div>
 
