@@ -1,9 +1,15 @@
 import { supabase } from "@/integrations/supabase/client";
 
-interface WgerExercise {
+interface WgerTranslation {
   id: number;
   name: string;
   description: string;
+  language: number;
+}
+
+interface WgerExercise {
+  id: number;
+  translations: WgerTranslation[];
   category: {
     id: number;
     name: string;
@@ -69,12 +75,20 @@ export async function syncWgerExercises(): Promise<{ success: boolean; count: nu
 
     console.log(`Fetched ${allExercises.length} exercises from WGER API`);
 
-    // Filter out exercises without valid names
-    allExercises = allExercises.filter(exercise => exercise.name && exercise.name.trim());
-    console.log(`Filtered to ${allExercises.length} exercises with valid names`);
+    // Filter out exercises without valid names and extract English translation (language: 2)
+    const exercisesWithNames = allExercises
+      .map(exercise => {
+        const englishTranslation = exercise.translations.find(t => t.language === 2);
+        return englishTranslation ? { ...exercise, name: englishTranslation.name, description: englishTranslation.description } : null;
+      })
+      .filter((exercise): exercise is WgerExercise & { name: string; description: string } => 
+        exercise !== null && exercise.name && exercise.name.trim().length > 0
+      );
+    
+    console.log(`Filtered to ${exercisesWithNames.length} exercises with valid names`);
 
     // Transform and upsert exercises
-    const exercisesToInsert = allExercises.map(exercise => ({
+    const exercisesToInsert = exercisesWithNames.map(exercise => ({
       wger_id: exercise.id,
       name: exercise.name,
       name_normalized: normalizeExerciseName(exercise.name),
