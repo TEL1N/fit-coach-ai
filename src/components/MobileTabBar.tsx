@@ -8,11 +8,6 @@ const MobileTabBar = () => {
   const location = useLocation();
   const { workoutPlan } = useWorkoutPlan();
   
-  // Hide nav bar if no workout plan exists (new user flow)
-  if (!workoutPlan) {
-    return null;
-  }
-
   const tabs = [
     { path: "/home", icon: Home, label: "Home" },
     { path: "/chat", icon: MessageSquare, label: "Chat" },
@@ -20,11 +15,18 @@ const MobileTabBar = () => {
     { path: "/profile", icon: User, label: "Profile" },
   ];
 
+  // Hide nav bar if no workout plan exists (new user flow)
+  if (!workoutPlan) {
+    return null;
+  }
+
   return (
     <motion.nav 
-      initial={{ y: 100, opacity: 0 }}
-      animate={{ y: 0, opacity: 1 }}
-      transition={{ type: "spring", stiffness: 100, damping: 20, delay: 0.2 }}
+      key="nav-bar"
+      initial={{ y: 100 }}
+      animate={{ y: 0 }}
+      exit={{ y: 100 }}
+      transition={{ type: "spring", stiffness: 300, damping: 30 }}
       className="fixed bottom-0 left-0 right-0 z-50 glass-strong border-t border-white/10"
       style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
     >
