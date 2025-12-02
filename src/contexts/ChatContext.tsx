@@ -120,11 +120,29 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
         convId = newConv.id;
 
         // Send welcome message
-        const welcomeMessage = `Hi! I'm your TailorFit AI coach. ${
-          profile 
-            ? `I see you want to ${profile.fitness_goal} and you're at ${profile.experience_level} level.` 
-            : ''
-        } Let's chat about your fitness journey! What questions do you have, or would you like me to create your personalized workout plan?`;
+        let welcomeMessage = "I'm TailorFit. ";
+        
+        if (profile) {
+          const frequency = profile.workout_frequency ? `${profile.workout_frequency}-day` : '';
+          const goal = profile.fitness_goal || 'your fitness goals';
+          
+          let equipment = 'available equipment';
+          if (profile.available_equipment && profile.available_equipment.length > 0) {
+            if (profile.available_equipment.includes('Full Commercial Gym')) {
+              equipment = 'full gym equipment';
+            } else if (profile.available_equipment.includes('Bodyweight Only')) {
+              equipment = 'bodyweight only';
+            } else if (profile.available_equipment.length === 1) {
+              equipment = profile.available_equipment[0].toLowerCase();
+            } else {
+              equipment = profile.available_equipment.join(', ').toLowerCase();
+            }
+          }
+          
+          welcomeMessage += `Based on your profile, I'll build you a ${frequency} plan for ${goal} using ${equipment}. Ready to generate your plan, or any questions first?`;
+        } else {
+          welcomeMessage += "Ready to create your personalized workout plan? Just say 'create my plan' or ask me any fitness questions first.";
+        }
 
         const { data: welcomeMsg } = await supabase
           .from('messages')
