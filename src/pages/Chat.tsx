@@ -6,11 +6,12 @@ import { Input } from "@/components/ui/input";
 import MobileTabBar from "@/components/MobileTabBar";
 import ConversationSelector from "@/components/ConversationSelector";
 import UpgradeModal from "@/components/UpgradeModal";
-import { Send, Zap, ExternalLink } from "lucide-react";
+import { Send, Zap, ExternalLink, Sparkles } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { sendClaudeMessage } from "@/lib/claudeService";
 import { getFitnessCoachSystemPrompt } from "@/lib/fitnessCoachPrompt";
 import { useChatContext } from "@/contexts/ChatContext";
+import { useWorkoutPlan } from "@/contexts/WorkoutPlanContext";
 
 interface Message {
   id: string;
@@ -34,10 +35,12 @@ const Chat = () => {
     setWorkoutPlanId,
     loadConversation,
   } = useChatContext();
+  const { workoutPlan } = useWorkoutPlan();
   const [isSending, setIsSending] = useState(false);
   const [message, setMessage] = useState("");
   const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
   const [hasExistingPlan, setHasExistingPlan] = useState(false);
+  const [showSuccessBanner, setShowSuccessBanner] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
 
@@ -467,10 +470,13 @@ const Chat = () => {
         // Play receive sound
         playReceiveSound();
 
+        // Show success banner to reveal navigation
+        setShowSuccessBanner(true);
+
         // Show success message with navigation button
         toast({
           title: "Your plan is ready! 💪",
-          description: "Click to view your personalized workout plan",
+          description: "Your workout plan is now available in the Workouts tab",
           action: (
             <Button 
               size="sm" 
@@ -507,6 +513,36 @@ const Chat = () => {
 
   return (
     <div className="h-[100dvh] bg-background flex flex-col overflow-hidden" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
+      {/* New User Banner */}
+      {!workoutPlan && !showSuccessBanner && (
+        <div className="px-6 py-4 glass-card border-b border-white/10">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 rounded-xl gradient-primary shadow-glow-sm">
+              <Sparkles className="w-4 h-4 text-white" />
+            </div>
+            <div>
+              <h2 className="text-base font-bold tracking-tight">Let's build your workout plan</h2>
+              <p className="text-xs text-muted-foreground">Chat with me to create your personalized plan</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Success Banner - shown after plan is created */}
+      {showSuccessBanner && (
+        <div className="px-6 py-4 glass-card border-b border-primary/30 bg-primary/5">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 rounded-xl gradient-energy shadow-glow-md">
+              <Sparkles className="w-4 h-4 text-white" />
+            </div>
+            <div className="flex-1">
+              <h2 className="text-base font-bold tracking-tight">Plan created! 🎉</h2>
+              <p className="text-xs text-muted-foreground">Check out your new workout plan below</p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Conversation Selector */}
       <ConversationSelector 
         currentConversationId={conversationId}
@@ -581,10 +617,10 @@ const Chat = () => {
         </div>
       </div>
 
-      {/* Input Area - Fixed at Bottom Above Nav */}
+      {/* Input Area - Fixed at Bottom Above Nav (or at very bottom if no nav) */}
       <div 
         className="fixed left-0 right-0 glass-strong border-t border-white/10 px-6 py-4 shadow-floating z-40"
-        style={{ bottom: 'calc(5rem + env(safe-area-inset-bottom))' }}
+        style={{ bottom: workoutPlan || showSuccessBanner ? 'calc(5rem + env(safe-area-inset-bottom))' : 'env(safe-area-inset-bottom)' }}
       >
         <div className="max-w-2xl mx-auto">
           <Button

@@ -31,6 +31,18 @@ const Home = () => {
           navigate("/onboarding");
           return;
         }
+
+        // Check if user has a workout plan - if not, redirect to Chat
+        const { data: plans } = await supabase
+          .from('workout_plans')
+          .select('id')
+          .eq('user_id', session.user.id)
+          .eq('is_active', true);
+
+        if (!plans || plans.length === 0) {
+          navigate("/chat");
+          return;
+        }
       } else {
         navigate("/auth");
       }
