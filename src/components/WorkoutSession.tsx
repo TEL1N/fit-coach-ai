@@ -187,92 +187,83 @@ const WorkoutSession = ({ dayName, exercises, onComplete, onExit }: WorkoutSessi
       </div>
 
       {/* Progress Bar */}
-      <div className="px-6 py-4 bg-card border-b border-border">
+      <div className="px-6 py-4 bg-card border-b border-border flex-shrink-0">
         <Progress value={progress} className="h-2" />
       </div>
 
-      {/* Main Content - Scrollable with proper spacing */}
-      <div 
-        className="flex-1 overflow-y-auto"
-        style={{ 
-          paddingBottom: 'calc(6rem + env(safe-area-inset-bottom))' 
-        }}
-      >
+      {/* Main Content - Centered, no scroll */}
+      <div className="flex-1 flex items-center justify-center px-6 py-8">
         {isResting ? (
           /* Rest Screen */
-          <div className="min-h-full flex flex-col items-center justify-center px-6 py-8">
-            <div className="text-center space-y-6 max-w-sm w-full">
-              <div className="w-32 h-32 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
-                <Timer className="w-16 h-16 text-primary" />
-              </div>
-              
-              <div>
-                <p className="text-muted-foreground mb-2">Rest Time</p>
-                <p className="text-6xl font-bold tabular-nums">{formatTime(restTimeLeft)}</p>
-              </div>
+          <div className="text-center space-y-6 max-w-sm w-full">
+            <div className="w-24 h-24 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
+              <Timer className="w-12 h-12 text-primary" />
+            </div>
+            
+            <div>
+              <p className="text-muted-foreground mb-2">Rest Time</p>
+              <p className="text-6xl font-bold tabular-nums">{formatTime(restTimeLeft)}</p>
+            </div>
 
-              <div className="space-y-2">
-                <p className="text-sm text-muted-foreground">
-                  Next: Set {currentSet} of {totalSets}
-                </p>
-              </div>
+            <div className="space-y-2">
+              <p className="text-sm text-muted-foreground">
+                Next: Set {currentSet} of {totalSets}
+              </p>
             </div>
           </div>
         ) : (
           /* Exercise Screen */
-          <div className="min-h-full flex flex-col items-center justify-center px-6 py-8">
-            <div className="space-y-6 max-w-sm w-full">
-              {/* Exercise Image */}
-              <div className="w-full aspect-square rounded-3xl bg-muted overflow-hidden flex items-center justify-center">
-                {currentExercise.imageUrl ? (
-                  <img
-                    src={currentExercise.imageUrl}
-                    alt={currentExercise.exercise_name || 'Exercise'}
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <div className="text-6xl">💪</div>
-                )}
-              </div>
-
-              {/* Exercise Details */}
-              <div className="text-center space-y-2">
-                <h3 className="text-2xl font-bold">
-                  {currentExercise.exercise_name}
-                </h3>
-                
-                <div className="flex items-center justify-center gap-4 text-muted-foreground">
-                  <span className="text-lg">
-                    {currentExercise.sets} sets
-                  </span>
-                  <span>•</span>
-                  <span className="text-lg">
-                    {currentExercise.reps} reps
-                  </span>
-                </div>
-
-                {currentExercise.notes && (
-                  <p className="text-sm text-muted-foreground pt-2">
-                    {currentExercise.notes}
-                  </p>
-                )}
-              </div>
-
-              {/* Set Counter */}
-              <Card className="p-6 text-center">
-                <p className="text-sm text-muted-foreground mb-1">Current Set</p>
-                <p className="text-5xl font-bold tabular-nums">
-                  {currentSet} <span className="text-2xl text-muted-foreground">/ {totalSets}</span>
-                </p>
-              </Card>
+          <div className="space-y-6 max-w-sm w-full">
+            {/* Exercise Image */}
+            <div className="w-full aspect-square rounded-3xl bg-muted overflow-hidden flex items-center justify-center max-h-64">
+              {currentExercise.imageUrl ? (
+                <img
+                  src={currentExercise.imageUrl}
+                  alt={currentExercise.exercise_name || 'Exercise'}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="text-6xl">💪</div>
+              )}
             </div>
+
+            {/* Exercise Details */}
+            <div className="text-center space-y-2">
+              <h3 className="text-2xl font-bold">
+                {currentExercise.exercise_name}
+              </h3>
+              
+              <div className="flex items-center justify-center gap-4 text-muted-foreground">
+                <span className="text-lg">
+                  {currentExercise.sets} sets
+                </span>
+                <span>•</span>
+                <span className="text-lg">
+                  {currentExercise.reps} reps
+                </span>
+              </div>
+
+              {currentExercise.notes && (
+                <p className="text-sm text-muted-foreground pt-2">
+                  {currentExercise.notes}
+                </p>
+              )}
+            </div>
+
+            {/* Set Counter */}
+            <Card className="p-6 text-center">
+              <p className="text-sm text-muted-foreground mb-1">Current Set</p>
+              <p className="text-5xl font-bold tabular-nums">
+                {currentSet} <span className="text-2xl text-muted-foreground">/ {totalSets}</span>
+              </p>
+            </Card>
           </div>
         )}
       </div>
 
-      {/* Bottom Action Button */}
+      {/* Fixed Bottom Action Button */}
       <div 
-        className="bg-card border-t border-border px-6 py-4 flex-shrink-0"
+        className="fixed bottom-0 left-0 right-0 bg-card/95 backdrop-blur-xl border-t border-border px-6 py-4 z-50"
         style={{ 
           paddingBottom: 'calc(1rem + env(safe-area-inset-bottom))' 
         }}
