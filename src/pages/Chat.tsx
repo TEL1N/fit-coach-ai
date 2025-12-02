@@ -349,29 +349,29 @@ const Chat = () => {
       return;
     }
     
-    // Check if this looks like a modification request
+    // Check modification status BEFORE sending ANY message
+    // Once free modification is used, ALL messages are blocked (not just modification requests)
+    const { data: profileCheck } = await supabase
+      .from('user_fitness_profiles')
+      .select('has_used_free_modification')
+      .eq('user_id', session.user.id)
+      .single();
+    
+    if (profileCheck?.has_used_free_modification) {
+      // User has already used their free modification - show upgrade modal immediately
+      // Block ALL messages, not just modification requests
+      console.log('[Chat] User has already used free modification, showing upgrade modal');
+      setIsUpgradeModalOpen(true);
+      return; // Don't send message, don't waste tokens
+    }
+    
+    // Check if this looks like a modification request (for later use in the function)
     const modificationKeywords = ['ease', 'easier', 'harder', 'intense', 'injury', 'hurt', 'pain', 
       'shorter', 'longer', 'less', 'more', 'reduce', 'increase', 'change', 'modify', 'adjust',
       'cardio', 'strength', 'rest', 'recovery', 'beginner', 'advanced', 'swap', 'replace', 
       'different', 'alternative', 'skip', 'remove', 'add'];
     const isModificationRequest = hasExistingPlan && 
       modificationKeywords.some(keyword => userMessage.toLowerCase().includes(keyword));
-    
-    // Check modification status BEFORE sending message
-    if (isModificationRequest) {
-      const { data: profileCheck } = await supabase
-        .from('user_fitness_profiles')
-        .select('has_used_free_modification')
-        .eq('user_id', session.user.id)
-        .single();
-      
-      if (profileCheck?.has_used_free_modification) {
-        // User has already used their free modification - show upgrade modal immediately
-        console.log('[Chat] User has already used free modification, showing upgrade modal');
-        setIsUpgradeModalOpen(true);
-        return; // Don't send message, don't waste tokens
-      }
-    }
     
     // Now proceed with sending the message
     setMessage("");
