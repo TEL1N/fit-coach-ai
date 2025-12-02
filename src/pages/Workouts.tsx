@@ -80,6 +80,12 @@ const Workouts = () => {
     setIsEditSheetOpen(false);
     if (workoutPlan?.conversationId) {
       navigate("/chat", { state: { conversationId: workoutPlan.conversationId } });
+    } else {
+      toast({
+        title: "No chat history found",
+        description: "This workout plan doesn't have a linked conversation.",
+        variant: "destructive",
+      });
     }
   };
 

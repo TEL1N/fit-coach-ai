@@ -24,10 +24,6 @@ interface ConversationSelectorProps {
 const ConversationSelector = ({ currentConversationId, onConversationChange }: ConversationSelectorProps) => {
   const [conversations, setConversations] = useState<Conversation[]>([]);
 
-  useEffect(() => {
-    loadConversations();
-  }, []);
-
   const loadConversations = async () => {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return;
@@ -55,6 +51,11 @@ const ConversationSelector = ({ currentConversationId, onConversationChange }: C
       setConversations(formattedConversations);
     }
   };
+
+  // Reload conversations when current conversation changes or on mount
+  useEffect(() => {
+    loadConversations();
+  }, [currentConversationId]);
 
   const formatConversationLabel = (conv: Conversation) => {
     const date = new Date(conv.created_at).toLocaleDateString('en-US', { 
