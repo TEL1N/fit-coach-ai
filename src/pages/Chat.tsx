@@ -139,8 +139,39 @@ const Chat = () => {
       if (newConv) {
         setConversationId(newConv.id);
         
-        // Send welcome message
-        const welcomeMessage = `I'm your workout plan builder. Ready to create your personalized plan? Just say 'create my plan' or ask me any fitness questions first.`;
+        // Send welcome message - use profile if available
+        let welcomeMessage = "I'm TailorFit. ";
+        
+        if (userProfile) {
+          const frequency = userProfile.workout_frequency ? `${userProfile.workout_frequency}-day` : '';
+          const goal = userProfile.fitness_goal || 'your fitness goals';
+          
+          // Map equipment from database keys to readable names
+          const EQUIPMENT_DISPLAY_MAP: Record<string, string> = {
+            'full_gym': 'full gym equipment',
+            'bodyweight': 'bodyweight only',
+            'barbell': 'barbell',
+            'dumbbells': 'dumbbells',
+            'squat_rack': 'squat rack',
+            'bench': 'bench',
+            'pullup_bar': 'pull-up bar',
+            'cable_machine': 'cable machine',
+            'kettlebells': 'kettlebells',
+            'resistance_bands': 'resistance bands',
+          };
+          
+          let equipment = 'available equipment';
+          if (userProfile.available_equipment && userProfile.available_equipment.length > 0) {
+            const equipmentNames = userProfile.available_equipment
+              .map(eq => EQUIPMENT_DISPLAY_MAP[eq] || eq)
+              .join(', ');
+            equipment = equipmentNames;
+          }
+          
+          welcomeMessage += `Based on your profile, I'll build you a ${frequency} plan for ${goal} using ${equipment}. Ready to generate your plan, or any questions first?`;
+        } else {
+          welcomeMessage += "Ready to create your personalized workout plan? Just say 'create my plan' or ask me any fitness questions first.";
+        }
 
         const { data: welcomeMsg } = await supabase
           .from('messages')

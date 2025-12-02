@@ -126,17 +126,26 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
           const frequency = profile.workout_frequency ? `${profile.workout_frequency}-day` : '';
           const goal = profile.fitness_goal || 'your fitness goals';
           
+          // Map equipment from database keys to readable names
+          const EQUIPMENT_DISPLAY_MAP: Record<string, string> = {
+            'full_gym': 'full gym equipment',
+            'bodyweight': 'bodyweight only',
+            'barbell': 'barbell',
+            'dumbbells': 'dumbbells',
+            'squat_rack': 'squat rack',
+            'bench': 'bench',
+            'pullup_bar': 'pull-up bar',
+            'cable_machine': 'cable machine',
+            'kettlebells': 'kettlebells',
+            'resistance_bands': 'resistance bands',
+          };
+          
           let equipment = 'available equipment';
           if (profile.available_equipment && profile.available_equipment.length > 0) {
-            if (profile.available_equipment.includes('Full Commercial Gym')) {
-              equipment = 'full gym equipment';
-            } else if (profile.available_equipment.includes('Bodyweight Only')) {
-              equipment = 'bodyweight only';
-            } else if (profile.available_equipment.length === 1) {
-              equipment = profile.available_equipment[0].toLowerCase();
-            } else {
-              equipment = profile.available_equipment.join(', ').toLowerCase();
-            }
+            const equipmentNames = profile.available_equipment
+              .map(eq => EQUIPMENT_DISPLAY_MAP[eq] || eq)
+              .join(', ');
+            equipment = equipmentNames;
           }
           
           welcomeMessage += `Based on your profile, I'll build you a ${frequency} plan for ${goal} using ${equipment}. Ready to generate your plan, or any questions first?`;

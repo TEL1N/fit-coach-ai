@@ -54,12 +54,27 @@ export const WorkoutPlanProvider = ({ children }: { children: ReactNode }) => {
   const lastLoadTimeRef = useRef(0);
   const cachedPlanIdRef = useRef<string | null>(null);
   const hasFetchedOnceRef = useRef(false);
+  const currentUserIdRef = useRef<string | null>(null); // Track current user to prevent cross-user cache
 
   const loadWorkoutPlan = useCallback(async (showLoadingState = true, forceRefresh = false) => {
+    const { data: { session } } = await supabase.auth.getSession();
+    const currentUserId = session?.user?.id || null;
+    
+    // CRITICAL: Clear cache if user changed (prevents showing wrong user's plan)
+    if (currentUserIdRef.current && currentUserIdRef.current !== currentUserId) {
+      console.log('[WorkoutPlanContext] User changed, clearing cache');
+      setWorkoutPlan(null);
+      cachedPlanIdRef.current = null;
+      setHasFetchedOnce(false);
+      hasFetchedOnceRef.current = false;
+      loadingRef.current = false;
+    }
+    currentUserIdRef.current = currentUserId;
+    
     // OPTIMIZATION: Skip query if we already have this plan cached and it's the same plan
-    // Use refs to avoid stale closures
+    // BUT only if user hasn't changed
     const currentPlanId = cachedPlanIdRef.current;
-    if (!forceRefresh && currentPlanId && !loadingRef.current && hasFetchedOnceRef.current) {
+    if (!forceRefresh && currentPlanId && !loadingRef.current && hasFetchedOnceRef.current && currentUserId === currentUserIdRef.current) {
       console.log('[WorkoutPlanContext] Plan already cached, skipping query');
       return;
     }
@@ -89,17 +104,18 @@ export const WorkoutPlanProvider = ({ children }: { children: ReactNode }) => {
     }
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
         setWorkoutPlan(null);
         setIsLoading(false);
         loadingRef.current = false;
+        cachedPlanIdRef.current = null;
         return;
       }
 
       // Load active workout plan with nested data (1 query instead of 3+)
+      // CRITICAL: Always filter by user_id to prevent cross-user data leaks
       const dbStartTime = performance.now();
-      const { data: plans } = await supabase
+      const { data: plans, error: queryError } = await supabase
         .from('workout_plans')
         .select(`
           *,
@@ -111,20 +127,40 @@ export const WorkoutPlanProvider = ({ children }: { children: ReactNode }) => {
             )
           )
         `)
-        .eq('user_id', session.user.id)
+        .eq('user_id', session.user.id) // CRITICAL: Always filter by current user
         .eq('is_active', true)
         .order('created_at', { ascending: false })
         .limit(1);
+      
+      if (queryError) {
+        console.error('[WorkoutPlanContext] Query error:', queryError);
+        throw queryError;
+      }
 
       if (!plans || plans.length === 0) {
-        console.log('[WorkoutPlanContext] No active plan found');
+        console.log('[WorkoutPlanContext] No active plan found for user:', session.user.id);
         setWorkoutPlan(null);
         setIsLoading(false);
         loadingRef.current = false;
+        cachedPlanIdRef.current = null; // Clear cache when no plan found
         return;
       }
 
       const plan = plans[0];
+      
+      // CRITICAL: Double-check user_id matches (defense in depth)
+      if (plan.user_id !== session.user.id) {
+        console.error('[WorkoutPlanContext] SECURITY: Plan user_id mismatch!', {
+          planUserId: plan.user_id,
+          currentUserId: session.user.id
+        });
+        setWorkoutPlan(null);
+        setIsLoading(false);
+        loadingRef.current = false;
+        cachedPlanIdRef.current = null;
+        return;
+      }
+      
       console.log(`[WorkoutPlanContext] Plan + nested data fetched in ${(performance.now() - dbStartTime).toFixed(0)}ms`);
 
       // Transform nested data structure
@@ -147,6 +183,7 @@ export const WorkoutPlanProvider = ({ children }: { children: ReactNode }) => {
       
       setWorkoutPlan(planData);
       cachedPlanIdRef.current = plan.id; // Cache plan ID
+      currentUserIdRef.current = session.user.id; // Cache user ID
       setIsLoading(false); // Show plan immediately
       setHasFetchedOnce(true);
       hasFetchedOnceRef.current = true;
@@ -180,20 +217,46 @@ export const WorkoutPlanProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const clearCache = useCallback(() => {
+    console.log('[WorkoutPlanContext] Clearing cache');
     setWorkoutPlan(null);
     cachedPlanIdRef.current = null;
+    currentUserIdRef.current = null;
     setHasFetchedOnce(false);
     hasFetchedOnceRef.current = false;
+    loadingRef.current = false;
   }, []);
-  // Load ONLY on mount, NEVER reload automatically
+  
+  // Load on mount and clear cache on auth changes
   useEffect(() => {
     // Only load once on mount - use ref to track if we've loaded
     if (!hasFetchedOnceRef.current) {
       loadWorkoutPlan(true);
     }
     
-    // DON'T listen to auth changes - they cause unnecessary reloads
-    // Auth changes are handled at app level, not here
+    // CRITICAL: Listen to auth changes to clear cache when user changes
+    // This prevents showing one user's plan to another user
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_OUT' || event === 'USER_UPDATED') {
+        console.log('[WorkoutPlanContext] Auth state changed:', event);
+        clearCache();
+        // Reload if user is still signed in (USER_UPDATED case)
+        if (session?.user && event === 'USER_UPDATED') {
+          // Small delay to ensure state is updated
+          setTimeout(() => {
+            hasFetchedOnceRef.current = false;
+            loadWorkoutPlan(true, true);
+          }, 100);
+        }
+      } else if (event === 'SIGNED_IN' && session?.user) {
+        // New user signed in - clear cache and load their plan
+        console.log('[WorkoutPlanContext] New user signed in, clearing cache');
+        clearCache();
+        hasFetchedOnceRef.current = false;
+        loadWorkoutPlan(true, true);
+      }
+    });
+    
+    return () => subscription.unsubscribe();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Only run once on mount
 
