@@ -17,7 +17,26 @@ const GOAL_MAP: Record<string, string> = {
   lose_weight: "LOSE WEIGHT → Fat burning focus: 12-15 reps, 30-45s rest, compound movements, keep heart rate elevated",
   general_fitness: "GENERAL FITNESS → Balanced approach: mix of strength and cardio, 8-12 reps, moderate rest",
   increase_strength: "INCREASE STRENGTH → Strength focus: 3-6 reps, 2-3 min rest, heavy compound lifts (squat, deadlift, bench, press)",
-  improve_endurance: "IMPROVE ENDURANCE → Cardio/HIIT focus: Use circuit training, minimal rest (15-30s), include cardio exercises like burpees, jumping jacks, high knees, mountain climbers, jump squats, box jumps. Can use time-based format (e.g. '30 seconds' instead of reps). High rep ranges (15-20+) for any strength exercises.",
+  improve_endurance: `IMPROVE ENDURANCE → ***MANDATORY CARDIO/HIIT WORKOUT***
+    
+    YOU MUST INCLUDE AT LEAST 3 OF THESE EXERCISES PER DAY:
+    - burpees
+    - jumping jacks  
+    - high knees
+    - mountain climbers
+    - jump squats
+    - box jumps
+    - skater jumps
+    - tuck jumps
+    - sprint in place
+    - jump rope
+    
+    FORMAT REQUIREMENTS:
+    - Use "30 seconds" or "45 seconds" for reps (NOT rep counts)
+    - Rest periods MUST be 15-30 seconds (NOT 60+ seconds)
+    - Structure as CIRCUITS, not traditional sets
+    
+    DO NOT use slow strength exercises like regular squats, planks, or glute bridges as primary exercises.`,
 };
 
 const EXPERIENCE_MAP: Record<string, string> = {
@@ -93,12 +112,17 @@ TRAINING FREQUENCY: ${frequency}
 INJURIES/LIMITATIONS: ${limitations}
 
 ══════════════════════════════════════════════════════════════════════════════
-                         STRICT REQUIREMENTS
+                         STRICT REQUIREMENTS - YOU MUST FOLLOW THESE
 ══════════════════════════════════════════════════════════════════════════════
 
 1. MUST create EXACTLY ${profile.workout_frequency || 3} workout days
 
-2. MUST match the user's GOAL with appropriate rep ranges and rest periods
+2. ***CRITICAL*** - MUST match the user's GOAL:
+   - If goal is ENDURANCE → USE CARDIO EXERCISES (burpees, jumping jacks, high knees, mountain climbers, jump squats)
+   - If goal is ENDURANCE → USE TIME-BASED REPS ("30 seconds" not "10 reps")
+   - If goal is ENDURANCE → USE SHORT REST (15-30 seconds, NOT 60+ seconds)
+   - If goal is STRENGTH → heavy compounds, low reps, long rest
+   - If goal is MUSCLE → hypertrophy rep ranges, moderate rest
 
 3. MUST ONLY use exercises possible with the AVAILABLE EQUIPMENT above
    - If "Bodyweight Only" → NO barbells, dumbbells, cables, or machines
