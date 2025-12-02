@@ -388,13 +388,13 @@ const Chat = () => {
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+        <div className="shimmer w-12 h-12 rounded-full"></div>
       </div>
     );
   }
 
   return (
-    <div className="h-[100dvh] bg-background flex flex-col overflow-hidden transition-all duration-300 ease-out" style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'calc(4rem + env(safe-area-inset-bottom))' }}>
+    <div className="h-[100dvh] bg-background flex flex-col overflow-hidden" style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'calc(4rem + env(safe-area-inset-bottom))' }}>
       {/* Conversation Selector */}
       <ConversationSelector 
         currentConversationId={conversationId}
@@ -403,11 +403,11 @@ const Chat = () => {
 
       {/* View Plan Button - shown when conversation has linked workout plan */}
       {workoutPlanId && (
-        <div className="px-6 py-3 border-b border-border/30 bg-primary/5">
+        <div className="px-6 py-3 border-b border-border/30 glass-card">
           <Button
             variant="outline"
             size="sm"
-            className="w-full h-9 text-sm font-medium"
+            className="w-full h-9 text-sm font-medium glass-card border-white/20"
             onClick={() => navigate("/workouts")}
           >
             <ExternalLink className="w-4 h-4 mr-2" />
@@ -426,20 +426,23 @@ const Chat = () => {
               style={{ animationDelay: `${index * 50}ms` }}
             >
               <div
-                className={`max-w-[75%] rounded-[20px] px-5 py-3.5 ${
+                className={`max-w-[75%] rounded-[24px] px-5 py-3.5 ${
                   msg.role === 'user'
-                    ? 'bg-gradient-to-br from-[#007AFF] to-[#0051D5] text-white shadow-md'
-                    : 'bg-[#E9E9EB] dark:bg-[#3A3A3C] text-foreground shadow-sm'
+                    ? 'gradient-primary text-white shadow-glow-sm'
+                    : 'glass-card border-white/10 text-foreground shadow-premium'
                 }`}
               >
-                <p className="text-[15px] leading-relaxed whitespace-pre-wrap break-words font-normal">
+                {msg.role === 'assistant' && (
+                  <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent rounded-[24px] pointer-events-none"></div>
+                )}
+                <p className="text-[15px] leading-relaxed whitespace-pre-wrap break-words font-normal relative z-10">
                   {msg.role === 'assistant' 
                     ? (msg.content.includes('{') && msg.content.includes('"workout_name"')
                         ? "Your plan is ready! 💪 Check it out in the Workouts tab."
                         : formatMessage(msg.content))
                     : msg.content}
                 </p>
-                <p className={`text-[11px] mt-1 ${
+                <p className={`text-[11px] mt-1 relative z-10 ${
                   msg.role === 'user' 
                     ? 'text-white/70' 
                     : 'text-muted-foreground/60'
@@ -452,11 +455,11 @@ const Chat = () => {
 
           {isSending && (
             <div className="mb-3 flex justify-start animate-fade-in">
-              <div className="max-w-[75%] rounded-[20px] px-4 py-3 bg-[#E9E9EB] dark:bg-[#3A3A3C] shadow-sm">
+              <div className="max-w-[75%] rounded-[24px] px-4 py-3 glass-card border-white/10">
                 <div className="flex items-center gap-1.5">
-                  <div className="w-2 h-2 bg-muted-foreground/60 rounded-full animate-bounce" style={{ animationDelay: '0ms', animationDuration: '1s' }}></div>
-                  <div className="w-2 h-2 bg-muted-foreground/60 rounded-full animate-bounce" style={{ animationDelay: '200ms', animationDuration: '1s' }}></div>
-                  <div className="w-2 h-2 bg-muted-foreground/60 rounded-full animate-bounce" style={{ animationDelay: '400ms', animationDuration: '1s' }}></div>
+                  <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0ms', animationDuration: '1s' }}></div>
+                  <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '200ms', animationDuration: '1s' }}></div>
+                  <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '400ms', animationDuration: '1s' }}></div>
                 </div>
               </div>
             </div>
@@ -466,20 +469,20 @@ const Chat = () => {
         </div>
       </div>
 
-      {/* Input Area - Fixed at bottom, above tab bar */}
-      <div className="border-t border-border/50 bg-card/95 backdrop-blur-xl px-6 py-4 flex-shrink-0 transition-all duration-300 ease-out">
+      {/* Input Area - Premium Floating Style */}
+      <div className="glass-strong border-t border-white/10 px-6 py-4 flex-shrink-0 shadow-floating">
         <div className="max-w-2xl mx-auto">
           <Button
             onClick={handleGenerateWorkoutPlan}
             disabled={isSending}
-            className="w-full mb-4 h-12 rounded-full bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-lg font-medium transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
+            className="w-full mb-4 h-12 rounded-full gradient-energy shadow-glow-md font-bold transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] hover:shadow-glow-lg"
           >
             <Zap className="w-4 h-4 mr-2" />
             Generate My Workout Plan
           </Button>
           
           <div className="flex gap-3 items-end">
-            <div className="flex-1 bg-muted/50 rounded-full px-5 py-2 border border-border/30 transition-all duration-200 focus-within:border-primary/50">
+            <div className="flex-1 glass-card border-white/20 rounded-full px-5 py-2 transition-all duration-200 focus-within:border-primary focus-within:shadow-glow-sm">
               <Input
                 placeholder="Message..."
                 value={message}
@@ -491,11 +494,11 @@ const Chat = () => {
             </div>
             <Button 
               size="icon" 
-              className="h-10 w-10 rounded-full flex-shrink-0 bg-primary hover:bg-primary/90 shadow-md transition-all duration-200 hover:scale-105 active:scale-95"
+              className="h-10 w-10 rounded-full flex-shrink-0 gradient-primary shadow-glow-md transition-all duration-200 hover:scale-105 active:scale-95 hover:shadow-glow-lg"
               disabled={!message.trim() || isSending}
               onClick={handleSendMessage}
             >
-              <Send className="w-4 h-4" />
+              <Send className="w-4 h-4 text-white" />
             </Button>
           </div>
         </div>
