@@ -9,6 +9,7 @@ import { Send, Zap, ExternalLink } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { sendClaudeMessage } from "@/lib/claudeService";
 import { getFitnessCoachSystemPrompt } from "@/lib/fitnessCoachPrompt";
+import { useChatContext } from "@/contexts/ChatContext";
 
 interface Message {
   id: string;
@@ -21,13 +22,19 @@ const Chat = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
-  const [isLoading, setIsLoading] = useState(true);
+  const {
+    messages,
+    conversationId,
+    workoutPlanId,
+    userProfile,
+    isLoading,
+    setMessages,
+    setConversationId,
+    setWorkoutPlanId,
+    loadConversation,
+  } = useChatContext();
   const [isSending, setIsSending] = useState(false);
   const [message, setMessage] = useState("");
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [conversationId, setConversationId] = useState<string | null>(null);
-  const [workoutPlanId, setWorkoutPlanId] = useState<string | null>(null);
-  const [userProfile, setUserProfile] = useState<any>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
 
@@ -95,39 +102,12 @@ const Chat = () => {
     scrollToBottom();
   }, [messages]);
 
-  const loadConversation = async (convId: string) => {
-    setIsLoading(true);
-    
-    const { data: conv } = await supabase
-      .from('conversations')
-      .select('workout_plan_id')
-      .eq('id', convId)
-      .single();
-    
-    if (conv) {
-      setWorkoutPlanId(conv.workout_plan_id);
-    }
-
-    const { data: existingMessages } = await supabase
-      .from('messages')
-      .select('*')
-      .eq('conversation_id', convId)
-      .order('created_at', { ascending: true });
-
-    // Completely replace messages array - don't merge
-    setMessages((existingMessages as Message[]) || []);
-
-    setConversationId(convId);
-    setIsLoading(false);
-  };
-
   const handleConversationChange = async (newConvId: string | null) => {
     if (newConvId === null) {
       // Start completely new conversation - clear everything
       setConversationId(null);
       setWorkoutPlanId(null);
       setMessages([]); // Clear all messages
-      setIsLoading(false);
       
       // Create a new conversation immediately
       const { data: { session } } = await supabase.auth.getSession();
@@ -170,118 +150,16 @@ const Chat = () => {
   };
 
   useEffect(() => {
-    const initializeChat = async () => {
-      // Check if we're navigating from Workouts with a conversation ID
-      const state = location.state as { conversationId?: string };
-      if (state?.conversationId) {
-        await loadConversation(state.conversationId);
-        // Clear the location state after loading
-        window.history.replaceState({}, document.title);
-        return;
-      }
+    // Check if we're navigating from Workouts with a conversation ID
+    const state = location.state as { conversationId?: string };
+    if (state?.conversationId) {
+      loadConversation(state.conversationId);
+      // Clear the location state after loading
+      window.history.replaceState({}, document.title);
+      return;
+    }
 
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        navigate("/auth");
-        return;
-      }
-
-      // Load user profile
-      const { data: profile } = await supabase
-        .from('user_fitness_profiles')
-        .select('*')
-        .eq('user_id', session.user.id)
-        .single();
-      
-      setUserProfile(profile);
-
-      // Only auto-create conversation if no conversationId is set (new chat)
-      if (conversationId) {
-        setIsLoading(false);
-        return;
-      }
-
-      // Load or create conversation
-      let { data: conversations } = await supabase
-        .from('conversations')
-        .select('*')
-        .eq('user_id', session.user.id)
-        .order('created_at', { ascending: false })
-        .limit(1);
-
-      let convId: string;
-
-      if (!conversations || conversations.length === 0) {
-        // Create new conversation
-        const { data: newConv, error } = await supabase
-          .from('conversations')
-          .insert({ user_id: session.user.id })
-          .select()
-          .single();
-
-        if (error || !newConv) {
-          toast({
-            title: "Error",
-            description: "Failed to create conversation",
-            variant: "destructive",
-          });
-          return;
-        }
-
-        convId = newConv.id;
-
-        // Send welcome message
-        const welcomeMessage = `Hi! I'm your TailorFit AI coach. ${
-          profile 
-            ? `I see you want to ${profile.fitness_goal} and you're at ${profile.experience_level} level.` 
-            : ''
-        } Let's chat about your fitness journey! What questions do you have, or would you like me to create your personalized workout plan?`;
-
-        const { data: welcomeMsg } = await supabase
-          .from('messages')
-          .insert({
-            conversation_id: convId,
-            role: 'assistant',
-            content: welcomeMessage,
-          })
-          .select()
-          .single();
-
-        if (welcomeMsg) {
-          setMessages([welcomeMsg as Message]);
-        }
-      } else {
-        convId = conversations[0].id;
-        
-        // Load workout_plan_id if linked
-        const { data: conv } = await supabase
-          .from('conversations')
-          .select('workout_plan_id')
-          .eq('id', convId)
-          .single();
-        
-        if (conv) {
-          setWorkoutPlanId(conv.workout_plan_id);
-        }
-
-        // Load existing messages
-        const { data: existingMessages } = await supabase
-          .from('messages')
-          .select('*')
-          .eq('conversation_id', convId)
-          .order('created_at', { ascending: true });
-
-        if (existingMessages) {
-          setMessages(existingMessages as Message[]);
-        }
-      }
-
-      setConversationId(convId);
-      setIsLoading(false);
-    };
-
-    initializeChat();
-
+    // Check auth
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (!session) {
         navigate("/auth");
@@ -289,7 +167,7 @@ const Chat = () => {
     });
 
     return () => subscription.unsubscribe();
-  }, [navigate, toast]);
+  }, [navigate, location]);
 
   const handleSendMessage = async () => {
     if (!message.trim() || !conversationId || isSending) return;
