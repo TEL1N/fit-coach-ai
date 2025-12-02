@@ -261,9 +261,16 @@ const Workouts = () => {
     setActiveWorkoutDayId(dayId);
   };
 
-  const handleWorkoutComplete = () => {
+  const handleWorkoutComplete = (completedExerciseIds: string[]) => {
     if (activeWorkoutDayId) {
       setCompletedDays(prev => new Map(prev).set(activeWorkoutDayId, new Date()));
+      
+      // Auto-check all exercises in the completed workout
+      setCompletedExercises(prev => {
+        const newSet = new Set(prev);
+        completedExerciseIds.forEach(id => newSet.add(id));
+        return newSet;
+      });
     }
     setActiveWorkoutDayId(null);
   };
