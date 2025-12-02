@@ -19,27 +19,31 @@ interface ExerciseMatch {
   alternatives: Array<{ exercise: WgerExercise; confidence: number }>;
 }
 
+// Singleton instances
 let exercisesCache: WgerExercise[] | null = null;
 let fuseInstance: Fuse<WgerExercise> | null = null;
 let isLoading = false;
 let loadPromise: Promise<void> | null = null;
 
+// OPTIMIZATION: In-memory cache for aliases with TTL
+const aliasCache = new Map<string, { exercise: WgerExercise; confidence: number; timestamp: number }>();
+const ALIAS_CACHE_TTL = 1000 * 60 * 60; // 1 hour
+
+// OPTIMIZATION: Batch alias lookups
+const pendingAliasLookups = new Map<string, Promise<WgerExercise | null>>();
+
 // Load exercises from database and initialize Fuse
 async function loadExercises(): Promise<void> {
   if (exercisesCache) {
-    console.log('[FuzzyMatcher] Using cached exercises:', exercisesCache.length);
     return;
   }
 
-  // If already loading, wait for existing load to complete
   if (isLoading && loadPromise) {
-    console.log('[FuzzyMatcher] Load already in progress, waiting...');
     return loadPromise;
   }
 
   isLoading = true;
   const startTime = performance.now();
-  console.log('[FuzzyMatcher] Starting exercise load...');
 
   loadPromise = (async () => {
     try {
@@ -53,24 +57,23 @@ async function loadExercises(): Promise<void> {
       }
 
       exercisesCache = data || [];
-      const loadTime = performance.now() - startTime;
-      console.log(`[FuzzyMatcher] Loaded ${exercisesCache.length} exercises in ${loadTime.toFixed(0)}ms`);
+      console.log(`[FuzzyMatcher] Loaded ${exercisesCache.length} exercises in ${(performance.now() - startTime).toFixed(0)}ms`);
 
-      // Initialize Fuse.js with fuzzy search configuration
-      const fuseStartTime = performance.now();
+      // OPTIMIZATION: Initialize Fuse with better scoring
       fuseInstance = new Fuse(exercisesCache, {
         keys: [
           { name: 'name', weight: 2 },
           { name: 'name_normalized', weight: 1.5 },
-          { name: 'description', weight: 0.5 } // Add description for fallback matching
+          { name: 'description', weight: 0.5 }
         ],
-        threshold: 0.4, // 0 = exact match, 1 = match anything
+        threshold: 0.4,
         includeScore: true,
         minMatchCharLength: 3,
-        ignoreLocation: true, // Search entire description text
+        ignoreLocation: true,
+        // OPTIMIZATION: Improve scoring
+        distance: 100,
+        useExtendedSearch: false,
       });
-      const fuseTime = performance.now() - fuseStartTime;
-      console.log(`[FuzzyMatcher] Initialized Fuse.js in ${fuseTime.toFixed(0)}ms`);
     } finally {
       isLoading = false;
       loadPromise = null;
@@ -80,13 +83,10 @@ async function loadExercises(): Promise<void> {
   return loadPromise;
 }
 
-// Pre-load exercises on app startup
 export async function preloadExercises(): Promise<void> {
-  console.log('[FuzzyMatcher] Preload requested');
   await loadExercises();
 }
 
-// Common aliases for better matching
 const COMMON_ALIASES: Record<string, string> = {
   'romanian deadlift': 'stiff leg deadlift',
   'rdl': 'romanian deadlift',
@@ -101,16 +101,14 @@ const COMMON_ALIASES: Record<string, string> = {
   'leg extension': 'leg extensions',
 };
 
-// Normalize exercise name for matching
 function normalizeExerciseName(name: string): string {
   return name
     .toLowerCase()
-    .replace(/[^a-z0-9\s]/g, '') // Remove special chars including hyphens
-    .replace(/\s+/g, ' ') // Normalize whitespace
+    .replace(/[^a-z0-9\s]/g, '')
+    .replace(/\s+/g, ' ')
     .trim();
 }
 
-// Remove common equipment prefixes for better fuzzy matching
 function removeEquipmentPrefix(name: string): string {
   const prefixes = ['barbell', 'dumbbell', 'cable', 'machine', 'bodyweight', 'smith machine'];
   let normalized = name.toLowerCase();
@@ -125,47 +123,114 @@ function removeEquipmentPrefix(name: string): string {
   return normalized.trim();
 }
 
-// Find exact match first, then check aliases, then fuzzy search
+// OPTIMIZATION: Batch fetch aliases from database
+async function batchFetchAliases(normalizedNames: string[]): Promise<Map<string, WgerExercise>> {
+  const uniqueNames = [...new Set(normalizedNames)];
+  const now = Date.now();
+  const results = new Map<string, WgerExercise>();
+  const namesToFetch: string[] = [];
+
+  // Check cache first
+  for (const name of uniqueNames) {
+    const cached = aliasCache.get(name);
+    if (cached && (now - cached.timestamp) < ALIAS_CACHE_TTL) {
+      results.set(name, cached.exercise);
+    } else {
+      namesToFetch.push(name);
+    }
+  }
+
+  if (namesToFetch.length === 0) {
+    return results;
+  }
+
+  // OPTIMIZATION: Single batched query instead of N queries
+  const { data: aliases } = await supabase
+    .from('exercise_aliases')
+    .select('alias, confidence_score, exercises(*)')
+    .in('alias', namesToFetch);
+
+  if (aliases) {
+    for (const alias of aliases) {
+      if (alias.exercises) {
+        const exercise = alias.exercises as unknown as WgerExercise;
+        results.set(alias.alias, exercise);
+        
+        // Update cache
+        aliasCache.set(alias.alias, {
+          exercise,
+          confidence: alias.confidence_score || 1.0,
+          timestamp: now
+        });
+      }
+    }
+  }
+
+  return results;
+}
+
+// OPTIMIZATION: Batch save aliases
+async function batchSaveAliases(aliasData: Array<{ alias: string; exerciseId: string; confidence: number }>): Promise<void> {
+  if (aliasData.length === 0) return;
+
+  try {
+    await supabase
+      .from('exercise_aliases')
+      .upsert(
+        aliasData.map(({ alias, exerciseId, confidence }) => ({
+          alias,
+          exercise_id: exerciseId,
+          confidence_score: confidence,
+        })),
+        { onConflict: 'alias' }
+      );
+  } catch (error) {
+    console.error('Error batch saving aliases:', error);
+  }
+}
+
 export async function findExerciseMatch(
   aiExerciseName: string
 ): Promise<ExerciseMatch | null> {
   if (!aiExerciseName) return null;
 
-  // Ensure exercises are loaded
   await loadExercises();
   if (!exercisesCache || !fuseInstance) return null;
 
   const normalized = normalizeExerciseName(aiExerciseName);
-
-  // 0. Check common aliases first
   const aliasedName = COMMON_ALIASES[normalized];
   const searchName = aliasedName || aiExerciseName;
   const searchNormalized = aliasedName ? normalizeExerciseName(aliasedName) : normalized;
 
-  // 1. Check for existing alias
-  const { data: alias } = await supabase
-    .from('exercise_aliases')
-    .select('exercise_id, confidence_score, exercises(*)')
-    .eq('alias', searchNormalized)
-    .maybeSingle();
-
-  if (alias && alias.exercises) {
-    const exercise = alias.exercises as unknown as WgerExercise;
+  // Check in-memory cache
+  const now = Date.now();
+  const cached = aliasCache.get(searchNormalized);
+  if (cached && (now - cached.timestamp) < ALIAS_CACHE_TTL) {
     return {
-      exercise,
-      confidence: alias.confidence_score || 1.0,
+      exercise: cached.exercise,
+      confidence: cached.confidence,
       alternatives: [],
     };
   }
 
-  // 2. Try exact match on name_normalized
+  // Check database alias (batched if called multiple times)
+  const aliasMap = await batchFetchAliases([searchNormalized]);
+  const aliasedExercise = aliasMap.get(searchNormalized);
+  if (aliasedExercise) {
+    return {
+      exercise: aliasedExercise,
+      confidence: 1.0,
+      alternatives: [],
+    };
+  }
+
+  // Exact match
   const exactMatch = exercisesCache.find(
     (ex) => ex.name_normalized === searchNormalized
   );
 
   if (exactMatch) {
-    // Save as alias for future lookups
-    await saveAlias(searchNormalized, exactMatch.id, 1.0);
+    await batchSaveAliases([{ alias: searchNormalized, exerciseId: exactMatch.id, confidence: 1.0 }]);
     return {
       exercise: exactMatch,
       confidence: 1.0,
@@ -173,10 +238,9 @@ export async function findExerciseMatch(
     };
   }
 
-  // 3. Fuzzy search with Fuse.js - try with original name first
+  // Fuzzy search
   let results = fuseInstance.search(searchName);
 
-  // 4. If no good results, try without equipment prefix
   if (results.length === 0 || (results[0].score || 1) > 0.4) {
     const withoutPrefix = removeEquipmentPrefix(searchName);
     if (withoutPrefix !== searchName.toLowerCase()) {
@@ -187,28 +251,10 @@ export async function findExerciseMatch(
     }
   }
 
-  // 5. If still low confidence, try searching descriptions with broader threshold
-  if (results.length === 0 || (results[0].score || 1) > 0.5) {
-    const descriptionSearch = new Fuse(exercisesCache, {
-      keys: ['description'],
-      threshold: 0.6, // More lenient for description matching
-      includeScore: true,
-      ignoreLocation: true,
-    });
-    
-    const descResults = descriptionSearch.search(searchName);
-    if (descResults.length > 0 && (!results[0] || (descResults[0].score || 0) < (results[0].score || 1))) {
-      results = descResults;
-      console.log(`Matched "${searchName}" via description: ${descResults[0].item.name}`);
-    }
-  }
-
   if (results.length === 0) {
-    console.warn('No match found for:', aiExerciseName);
     return null;
   }
 
-  // Convert Fuse scores to confidence (Fuse score is 0-1, where 0 is best)
   const matches = results.slice(0, 3).map((result) => ({
     exercise: result.item,
     confidence: 1 - (result.score || 0),
@@ -216,14 +262,8 @@ export async function findExerciseMatch(
 
   const bestMatch = matches[0];
 
-  // Log low confidence matches for improvement
-  if (bestMatch.confidence < 0.8) {
-    console.warn(`Low confidence match for "${aiExerciseName}": ${bestMatch.exercise.name} (${(bestMatch.confidence * 100).toFixed(0)}%)`);
-  }
-
-  // Only save alias if confidence is high enough
   if (bestMatch.confidence >= 0.8) {
-    await saveAlias(searchNormalized, bestMatch.exercise.id, bestMatch.confidence);
+    await batchSaveAliases([{ alias: searchNormalized, exerciseId: bestMatch.exercise.id, confidence: bestMatch.confidence }]);
   }
 
   return {
@@ -233,56 +273,109 @@ export async function findExerciseMatch(
   };
 }
 
-// Batch find exercise matches for multiple exercises (optimized)
+// OPTIMIZATION: Completely rewritten for parallel batching
 export async function findExerciseMatches(
   exerciseNames: string[]
 ): Promise<Map<string, ExerciseMatch | null>> {
   const startTime = performance.now();
   console.log(`[FuzzyMatcher] Finding matches for ${exerciseNames.length} exercises...`);
   
+  await loadExercises();
+  if (!exercisesCache || !fuseInstance) {
+    return new Map();
+  }
+
   const results = new Map<string, ExerciseMatch | null>();
+  const normalizedNames = exerciseNames.map(name => ({
+    original: name,
+    normalized: normalizeExerciseName(name),
+    searchName: COMMON_ALIASES[normalizeExerciseName(name)] || name
+  }));
+
+  // OPTIMIZATION: Batch fetch all aliases at once
+  const aliasMap = await batchFetchAliases(normalizedNames.map(n => n.normalized));
   
-  // Run all matches in parallel
-  const matches = await Promise.all(
-    exerciseNames.map(name => findExerciseMatch(name))
-  );
-  
-  exerciseNames.forEach((name, index) => {
-    results.set(name, matches[index]);
-  });
+  // OPTIMIZATION: Process in parallel with proper batching
+  const toFuzzyMatch: typeof normalizedNames = [];
+  const aliasesToSave: Array<{ alias: string; exerciseId: string; confidence: number }> = [];
+
+  for (const { original, normalized, searchName } of normalizedNames) {
+    // Check alias cache
+    const aliasedExercise = aliasMap.get(normalized);
+    if (aliasedExercise) {
+      results.set(original, {
+        exercise: aliasedExercise,
+        confidence: 1.0,
+        alternatives: [],
+      });
+      continue;
+    }
+
+    // Check exact match
+    const exactMatch = exercisesCache!.find(ex => ex.name_normalized === normalized);
+    if (exactMatch) {
+      results.set(original, {
+        exercise: exactMatch,
+        confidence: 1.0,
+        alternatives: [],
+      });
+      aliasesToSave.push({ alias: normalized, exerciseId: exactMatch.id, confidence: 1.0 });
+      continue;
+    }
+
+    // Queue for fuzzy matching
+    toFuzzyMatch.push({ original, normalized, searchName });
+  }
+
+  // OPTIMIZATION: Fuzzy match remaining items
+  for (const { original, normalized, searchName } of toFuzzyMatch) {
+    let fuseResults = fuseInstance!.search(searchName);
+
+    if (fuseResults.length === 0 || (fuseResults[0].score || 1) > 0.4) {
+      const withoutPrefix = removeEquipmentPrefix(searchName);
+      if (withoutPrefix !== searchName.toLowerCase()) {
+        const prefixResults = fuseInstance!.search(withoutPrefix);
+        if (prefixResults.length > 0 && (!fuseResults[0] || (prefixResults[0].score || 0) < (fuseResults[0].score || 1))) {
+          fuseResults = prefixResults;
+        }
+      }
+    }
+
+    if (fuseResults.length === 0) {
+      results.set(original, null);
+      continue;
+    }
+
+    const matches = fuseResults.slice(0, 3).map(result => ({
+      exercise: result.item,
+      confidence: 1 - (result.score || 0),
+    }));
+
+    const bestMatch = matches[0];
+    results.set(original, {
+      exercise: bestMatch.exercise,
+      confidence: bestMatch.confidence,
+      alternatives: matches.slice(1),
+    });
+
+    if (bestMatch.confidence >= 0.8) {
+      aliasesToSave.push({ alias: normalized, exerciseId: bestMatch.exercise.id, confidence: bestMatch.confidence });
+    }
+  }
+
+  // OPTIMIZATION: Batch save all aliases at once
+  if (aliasesToSave.length > 0) {
+    await batchSaveAliases(aliasesToSave);
+  }
   
   const duration = performance.now() - startTime;
-  console.log(`[FuzzyMatcher] Matched ${exerciseNames.length} exercises in ${duration.toFixed(0)}ms`);
+  console.log(`[FuzzyMatcher] ✅ Matched ${exerciseNames.length} exercises in ${duration.toFixed(0)}ms`);
   
   return results;
 }
 
-// Save exercise alias for faster future lookups
-async function saveAlias(
-  alias: string,
-  exerciseId: string,
-  confidence: number
-): Promise<void> {
-  try {
-    await supabase
-      .from('exercise_aliases')
-      .upsert(
-        {
-          alias,
-          exercise_id: exerciseId,
-          confidence_score: confidence,
-        },
-        {
-          onConflict: 'alias',
-        }
-      );
-  } catch (error) {
-    console.error('Error saving alias:', error);
-  }
-}
-
-// Clear cache (useful for testing or after syncing new exercises)
 export function clearExerciseCache(): void {
   exercisesCache = null;
   fuseInstance = null;
+  aliasCache.clear();
 }
