@@ -57,7 +57,7 @@ interface WorkoutPlan {
 const Workouts = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { workoutPlan: contextWorkoutPlan, exerciseMatchCache, isLoading, refreshWorkoutPlan } = useWorkoutPlan();
+  const { workoutPlan: contextWorkoutPlan, exerciseMatchCache, isLoading, refreshWorkoutPlan, clearCache } = useWorkoutPlan();
   const [localWorkoutPlan, setLocalWorkoutPlan] = useState<WorkoutPlan | null>(null);
   const [expandedDays, setExpandedDays] = useState<Set<string>>(new Set());
   const [isEditSheetOpen, setIsEditSheetOpen] = useState(false);
@@ -212,15 +212,21 @@ const Workouts = () => {
     if (!workoutPlan) return;
 
     try {
-      // Delete the linked conversation first
+      // First delete all messages in the linked conversation
       if (workoutPlan.conversationId) {
+        await supabase
+          .from('messages')
+          .delete()
+          .eq('conversation_id', workoutPlan.conversationId);
+
+        // Delete the conversation itself
         await supabase
           .from('conversations')
           .delete()
           .eq('id', workoutPlan.conversationId);
       }
 
-      // Then delete the workout plan
+      // Delete the workout plan (cascade will delete days and exercises)
       await supabase
         .from('workout_plans')
         .delete()
@@ -228,11 +234,11 @@ const Workouts = () => {
 
       toast({
         title: "Plan deleted",
-        description: "Your workout plan has been deleted.",
+        description: "Your workout plan and chat history have been deleted.",
       });
 
-      // Refresh context to clear deleted plan
-      await refreshWorkoutPlan();
+      // Clear context cache immediately
+      clearCache();
       setLocalWorkoutPlan(null);
       setIsEditMode(false);
       setIsDeleteDialogOpen(false);
@@ -583,7 +589,7 @@ const Workouts = () => {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete this workout plan?</AlertDialogTitle>
             <AlertDialogDescription>
-              This can't be undone.
+              This will permanently delete your workout plan and all associated chat history. This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -592,7 +598,7 @@ const Workouts = () => {
               onClick={handleDeletePlan}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              Delete
+              Delete Plan & History
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
