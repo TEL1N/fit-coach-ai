@@ -274,28 +274,41 @@ const Chat = () => {
       conversationHistory.push({ role: 'user', content: userMessage });
 
       // Get AI response with higher token limit for workout plans
-      // DEBUG: Log profile to verify it's being passed
-      console.log('[Chat] userProfile being sent to AI:', userProfile);
-      console.log('[Chat] Profile fitness_goal:', userProfile?.fitness_goal);
+      // ALWAYS fetch fresh profile from database before sending to AI
+      // This ensures the AI always has the latest onboarding data
+      const { data: { session } } = await supabase.auth.getSession();
+      let profileToUse = null;
       
-      // If userProfile is null, try to fetch it directly
-      let profileToUse = userProfile;
-      if (!profileToUse) {
-        console.log('[Chat] Profile not in context, fetching directly...');
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session) {
-          const { data: freshProfile } = await supabase
-            .from('user_fitness_profiles')
-            .select('*')
-            .eq('user_id', session.user.id)
-            .single();
-          profileToUse = freshProfile;
-          console.log('[Chat] Fetched fresh profile:', freshProfile);
+      if (session) {
+        const { data: freshProfile, error: profileError } = await supabase
+          .from('user_fitness_profiles')
+          .select('*')
+          .eq('user_id', session.user.id)
+          .single();
+        
+        profileToUse = freshProfile;
+        
+        // Detailed logging to debug profile issues
+        console.log('[Chat] Fresh profile fetch result:', {
+          success: !!freshProfile,
+          error: profileError?.message || null,
+          fitness_goal: freshProfile?.fitness_goal || 'NOT SET',
+          experience_level: freshProfile?.experience_level || 'NOT SET',
+          available_equipment: freshProfile?.available_equipment || 'NOT SET',
+          workout_frequency: freshProfile?.workout_frequency || 'NOT SET',
+          limitations: freshProfile?.limitations || 'NOT SET'
+        });
+        
+        if (profileError) {
+          console.error('[Chat] Profile fetch error:', profileError);
         }
+      } else {
+        console.error('[Chat] No session found - cannot fetch profile');
       }
       
       const systemPrompt = getFitnessCoachSystemPrompt(profileToUse);
       console.log('[Chat] System prompt includes profile:', systemPrompt.includes('USER\'S FITNESS PROFILE'));
+      console.log('[Chat] System prompt length:', systemPrompt.length);
       
       const isWorkoutPlanRequest = userMessage.toLowerCase().includes('workout plan') || 
                                    userMessage.toLowerCase().includes('create my') ||

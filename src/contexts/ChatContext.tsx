@@ -108,13 +108,20 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
         .eq('user_id', session.user.id)
         .single();
       
-      console.log('[ChatContext] Loaded user profile:', profile);
-      console.log('[ChatContext] Profile error:', profileError);
-      
-      if (profile) {
-        console.log('[ChatContext] Profile details - Goal:', profile.fitness_goal, 
-          'Experience:', profile.experience_level, 
-          'Equipment:', profile.available_equipment);
+      // Detailed logging for debugging profile issues
+      if (profileError) {
+        console.error('[ChatContext] ❌ PROFILE FETCH FAILED:', profileError.message);
+        console.error('[ChatContext] This means the AI will NOT have access to onboarding data!');
+      } else if (profile) {
+        console.log('[ChatContext] ✅ Profile loaded successfully:', {
+          fitness_goal: profile.fitness_goal,
+          experience_level: profile.experience_level,
+          available_equipment: profile.available_equipment,
+          workout_frequency: profile.workout_frequency,
+          limitations: profile.limitations || 'None'
+        });
+      } else {
+        console.warn('[ChatContext] ⚠️ No profile found for user - onboarding may not be complete');
       }
       
       setUserProfile(profile);
