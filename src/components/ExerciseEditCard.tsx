@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Dumbbell, Trash2, GripVertical, Check, X } from "lucide-react";
+import { Trash2, GripVertical, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -19,8 +19,8 @@ interface ExerciseEditCardProps {
   exercise: Exercise;
   isEditing: boolean;
   onEdit: () => void;
-  onSave: (updated: Partial<Exercise>) => void;
-  onCancel: () => void;
+  onUpdate: (updated: Partial<Exercise>) => void;
+  onDoneEditing: () => void;
   onDelete: () => void;
 }
 
@@ -28,8 +28,8 @@ const ExerciseEditCard = ({
   exercise,
   isEditing,
   onEdit,
-  onSave,
-  onCancel,
+  onUpdate,
+  onDoneEditing,
   onDelete,
 }: ExerciseEditCardProps) => {
   const [editedExercise, setEditedExercise] = useState(exercise);
@@ -39,8 +39,9 @@ const ExerciseEditCard = ({
     setEditedExercise(exercise);
   }, [exercise, isEditing]);
 
-  const handleSave = () => {
-    onSave(editedExercise);
+  // Update parent state when field changes (on blur)
+  const handleFieldBlur = () => {
+    onUpdate(editedExercise);
   };
 
   if (isEditing) {
@@ -56,6 +57,7 @@ const ExerciseEditCard = ({
               onChange={(e) =>
                 setEditedExercise({ ...editedExercise, exercise_name: e.target.value })
               }
+              onBlur={handleFieldBlur}
               className="h-10"
               placeholder="e.g., Bench Press"
             />
@@ -75,6 +77,7 @@ const ExerciseEditCard = ({
                     sets: parseInt(e.target.value) || null,
                   })
                 }
+                onBlur={handleFieldBlur}
                 className="h-10"
                 placeholder="3"
               />
@@ -88,6 +91,7 @@ const ExerciseEditCard = ({
                 onChange={(e) =>
                   setEditedExercise({ ...editedExercise, reps: e.target.value })
                 }
+                onBlur={handleFieldBlur}
                 className="h-10"
                 placeholder="8-12"
               />
@@ -107,6 +111,7 @@ const ExerciseEditCard = ({
                   rest_seconds: parseInt(e.target.value) || null,
                 })
               }
+              onBlur={handleFieldBlur}
               className="h-10"
               placeholder="60"
             />
@@ -121,30 +126,22 @@ const ExerciseEditCard = ({
               onChange={(e) =>
                 setEditedExercise({ ...editedExercise, notes: e.target.value })
               }
+              onBlur={handleFieldBlur}
               className="min-h-[60px] resize-none"
               placeholder="Form cues, tips, etc."
             />
           </div>
 
-          <div className="flex gap-2 pt-2">
-            <Button
-              onClick={handleSave}
-              className="flex-1 h-10 rounded-xl"
-              size="sm"
-            >
-              <Check className="w-4 h-4 mr-1" />
-              Save
-            </Button>
-            <Button
-              onClick={onCancel}
-              variant="outline"
-              className="flex-1 h-10 rounded-xl"
-              size="sm"
-            >
-              <X className="w-4 h-4 mr-1" />
-              Cancel
-            </Button>
-          </div>
+          {/* Done button to collapse this exercise */}
+          <Button
+            onClick={onDoneEditing}
+            variant="outline"
+            className="w-full h-10 rounded-xl"
+            size="sm"
+          >
+            <Check className="w-4 h-4 mr-1" />
+            Done
+          </Button>
         </div>
       </div>
     );

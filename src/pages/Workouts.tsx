@@ -64,7 +64,6 @@ const Workouts = () => {
   const [isEditMode, setIsEditMode] = useState(false);
   const [editingExerciseId, setEditingExerciseId] = useState<string | null>(null);
   const [originalPlan, setOriginalPlan] = useState<WorkoutPlan | null>(null);
-  const [hasMadeChanges, setHasMadeChanges] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [activeWorkoutDayId, setActiveWorkoutDayId] = useState<string | null>(null);
   const [completedExercises, setCompletedExercises] = useState<Set<string>>(new Set());
@@ -132,22 +131,14 @@ const Workouts = () => {
       setLocalWorkoutPlan(clonedPlan);
       setExpandedDays(new Set(workoutPlan.days.map(d => d.id)));
     }
-    setHasMadeChanges(false);
   };
 
-  const handleConfirmChanges = () => {
-    setIsEditMode(false);
-    setEditingExerciseId(null);
-    setHasMadeChanges(false);
-    setOriginalPlan(null);
-  };
-
-  const handleRevertChanges = async () => {
-    if (!originalPlan) return;
+  const handleConfirmChanges = async () => {
+    if (!localWorkoutPlan) return;
     
     try {
-      // Revert all exercises in the database to original values
-      for (const day of originalPlan.days) {
+      // Save ALL exercises in localWorkoutPlan to the database
+      for (const day of localWorkoutPlan.days) {
         for (const exercise of day.exercises) {
           await supabase
             .from('workout_exercises')
@@ -162,28 +153,44 @@ const Workouts = () => {
         }
       }
       
+      // Refresh context to sync with DB
       await refreshWorkoutPlan(true);
-      setLocalWorkoutPlan(originalPlan);
-      setIsEditMode(false);
-      setEditingExerciseId(null);
-      setHasMadeChanges(false);
-      setOriginalPlan(null);
       
       toast({
-        title: "Changes reverted",
-        description: "Your workout plan has been restored to its original state.",
+        title: "Changes saved",
+        description: "Your workout plan has been updated.",
       });
+      
+      setIsEditMode(false);
+      setEditingExerciseId(null);
+      setOriginalPlan(null);
     } catch (error) {
-      console.error('Error reverting changes:', error);
+      console.error('Error saving changes:', error);
       toast({
         title: "Error",
-        description: "Failed to revert changes. Please try again.",
+        description: "Failed to save changes. Please try again.",
         variant: "destructive",
       });
     }
   };
 
+  const handleRevertChanges = () => {
+    // Simply discard local changes and restore original
+    if (originalPlan) {
+      setLocalWorkoutPlan(JSON.parse(JSON.stringify(originalPlan)));
+    }
+    setIsEditMode(false);
+    setEditingExerciseId(null);
+    setOriginalPlan(null);
+    
+    toast({
+      title: "Changes discarded",
+      description: "Your edits have been reverted.",
+    });
+  };
+
   const handleUpdateExercise = (dayId: string, exerciseId: string, updates: Partial<Exercise>) => {
+    // Update local state only - DB save happens on "Confirm Changes"
     setLocalWorkoutPlan(prev => {
       if (!prev) return prev;
       return {
@@ -201,7 +208,6 @@ const Workouts = () => {
       };
     });
     setEditingExerciseId(null);
-    setHasMadeChanges(true);
   };
 
   const handleDeleteExercise = async (dayId: string, exerciseId: string) => {
@@ -462,8 +468,8 @@ const Workouts = () => {
                                 exercise={exercise}
                                 isEditing={editingExerciseId === exercise.id}
                                 onEdit={() => setEditingExerciseId(exercise.id)}
-                                onSave={(updates) => handleUpdateExercise(day.id, exercise.id, updates)}
-                                onCancel={() => setEditingExerciseId(null)}
+                                onUpdate={(updates) => handleUpdateExercise(day.id, exercise.id, updates)}
+                                onDoneEditing={() => setEditingExerciseId(null)}
                                 onDelete={() => handleDeleteExercise(day.id, exercise.id)}
                               />
                             ) : (
@@ -571,8 +577,8 @@ const Workouts = () => {
         )}
       </div>
 
-      {/* Fixed Confirm/Revert Actions - Show When Changes Made in Edit Mode */}
-      {isEditMode && hasMadeChanges && (
+      {/* Fixed Confirm/Revert Actions - Show When in Edit Mode */}
+      {isEditMode && (
         <div
           className="fixed left-0 right-0 bg-card/95 backdrop-blur-xl border-t border-border px-6 py-4 flex gap-3 z-40"
           style={{ bottom: 'calc(5rem + env(safe-area-inset-bottom))' }}
