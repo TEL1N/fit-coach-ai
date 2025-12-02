@@ -7,121 +7,186 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-function getFitnessCoachSystemPrompt(userProfile?: any): string {
-  let basePrompt = `You are TailorFit AI, a certified fitness coach assistant. Your ONLY role is to help users with fitness, exercise, nutrition, and wellness.
+// ============================================================================
+// VALUE MAPPERS - Convert database keys to human-readable descriptions
+// These MUST match the values stored during onboarding
+// ============================================================================
 
-STRICT RULES:
-1. You ONLY discuss fitness, exercise, nutrition, health, and wellness topics
-2. If asked about ANYTHING else (coding, homework, general knowledge, creative writing, politics, etc.), politely redirect: "I'm specifically designed to help with your fitness journey. Let's focus on your workout goals! What would you like to know about exercise or nutrition?"
-3. Always prioritize safety - if someone mentions injuries or medical conditions, remind them to consult a healthcare provider
-4. Be encouraging but realistic - don't promise unrealistic results
-5. Consider progressive overload and recovery in your advice
+const GOAL_MAP: Record<string, string> = {
+  build_muscle: "Build Muscle (hypertrophy-focused, 8-12 rep ranges)",
+  lose_weight: "Lose Weight (fat loss with muscle retention, higher reps, shorter rest)",
+  general_fitness: "General Fitness (balanced health and conditioning)",
+  increase_strength: "Increase Strength (low reps 3-6, heavy compounds, longer rest)",
+  improve_endurance: "Improve Endurance (high reps 15-20, minimal rest, circuits)",
+};
 
-COMMUNICATION STYLE (CRITICAL):
-- Be brief, direct, and clinical - like a focused personal trainer, not a chatty friend
-- NO preamble, validation statements, or fluff (no "Perfect!", "I love that!", etc.)
-- NO prefixes like "Quick question:" - just ask the question directly
-- 1-2 sentences max, usually just a single question
-- NEVER use markdown formatting (no bold, italics, asterisks, backticks, code blocks)
-- Use plain text only
-- Ask ONLY ONE question at a time, never multiple questions
+const EXPERIENCE_MAP: Record<string, string> = {
+  complete_beginner: "Complete Beginner - needs simple exercises, machines OK, clear form cues",
+  returning: "Returning After Break - has experience but rebuilding, start moderate",
+  occasional: "Occasional Exerciser - knows basics but inconsistent",
+  regular: "Regular Gym-Goer - comfortable with most exercises, can handle free weights",
+  experienced: "Experienced Lifter - years of training, can handle advanced programming",
+  advanced: "Advanced Athlete - competitive level, sophisticated periodization OK",
+};
 
-YOUR PRIMARY JOB:
-You are a PLAN-BUILDER, not a therapist or chatbot. Your only job is to gather the minimum info needed to create a quality workout plan, then create it.
+const EQUIPMENT_MAP: Record<string, string> = {
+  full_gym: "Full Commercial Gym (all machines, cables, free weights available)",
+  barbell: "Barbell + Weight Plates",
+  dumbbells: "Dumbbells",
+  squat_rack: "Squat Rack / Power Rack",
+  bench: "Adjustable Bench",
+  pullup_bar: "Pull-up Bar",
+  cable_machine: "Cable Machine",
+  kettlebells: "Kettlebells",
+  resistance_bands: "Resistance Bands",
+  bodyweight: "Bodyweight Only (NO equipment - use push ups, pull ups, squats, lunges, etc.)",
+};
 
-CRITICAL: DO NOT RE-ASK INFORMATION FROM USER'S PROFILE
-- You already have their goal, experience level, equipment, frequency, and limitations
-- NEVER ask questions you already know the answer to
-- Go straight to offering the plan if you have all needed info
+interface UserProfile {
+  fitness_goal?: string | null;
+  experience_level?: string | null;
+  available_equipment?: string[] | null;
+  workout_frequency?: number | null;
+  limitations?: string | null;
+}
 
-INFORMATION YOU NEED (if not in user profile):
-1. Equipment access (if not already known)
-2. Days available per week (if not already known)
-3. Session length preference (30min, 45min, 60min, 90min)
-4. Any injuries or limitations to avoid (if not already known)
+/**
+ * Formats the user profile with human-readable values for Claude
+ */
+function formatUserProfile(profile: UserProfile): string {
+  const goal = profile.fitness_goal 
+    ? (GOAL_MAP[profile.fitness_goal] || profile.fitness_goal)
+    : "Not specified";
+  
+  const experience = profile.experience_level
+    ? (EXPERIENCE_MAP[profile.experience_level] || profile.experience_level)
+    : "Not specified";
+  
+  let equipment = "Not specified";
+  if (profile.available_equipment && profile.available_equipment.length > 0) {
+    const mappedEquipment = profile.available_equipment.map(eq => 
+      EQUIPMENT_MAP[eq] || eq
+    );
+    equipment = mappedEquipment.join(", ");
+  }
+  
+  let frequency = "Not specified";
+  if (profile.workout_frequency) {
+    frequency = `${profile.workout_frequency} days per week`;
+  }
+  
+  const limitations = profile.limitations?.trim() || "None reported";
 
-ANSWERING GENERAL FITNESS QUESTIONS:
-- Answer briefly in 1-2 sentences
-- Then guide back: "Want me to create your workout plan now?"
-- Don't get sidetracked into long discussions
+  return `
+══════════════════════════════════════════════════════════════════════════════
+                    USER FITNESS PROFILE - MANDATORY REQUIREMENTS
+══════════════════════════════════════════════════════════════════════════════
 
-CRITICAL RULES:
-- Maximum 2 questions before saying "Ready to build your plan?"
-- Use multiple choice format when possible: "Do you have 30, 45, 60, or 90 minutes per session?"
-- Keep the entire intake under 3 back-and-forth messages before generating the plan
-- Be warm but efficient - like a good personal trainer on a busy gym floor
+PRIMARY GOAL: ${goal}
 
-IMPORTANT MEDICAL DISCLAIMER:
-When giving specific workout or nutrition advice, include: "This is general fitness guidance. Please consult with a healthcare provider before starting any new exercise program, especially if you have medical conditions or injuries."
+EXPERIENCE LEVEL: ${experience}
 
-WHEN TO CREATE A WORKOUT PLAN:
-When the user explicitly asks to create/generate their workout plan, or says something like "make me a plan", "create my program", "I'm ready for my workout", respond with a structured JSON workout plan.
+AVAILABLE EQUIPMENT: ${equipment}
 
-CRITICAL JSON OUTPUT RULES:
-1. Output ONLY the raw JSON object - nothing else
-2. Start your response with { and end with }
-3. NO text before the JSON (no explanations, no greetings)
-4. NO text after the JSON (no closing remarks)
-5. NO markdown code blocks or backticks
-6. Just pure, valid JSON from start to finish
+TRAINING FREQUENCY: ${frequency}
 
-WORKOUT PLAN CONSTRAINTS:
-- Generate 1 week of workouts only (not multiple weeks)
-- Maximum 4 workout days
-- Each day should have 4-5 exercises maximum
-- Keep it simple and achievable
+INJURIES/LIMITATIONS: ${limitations}
 
-Use this EXACT JSON format (no weeks_duration or week_number fields):
+══════════════════════════════════════════════════════════════════════════════
+                         STRICT REQUIREMENTS
+══════════════════════════════════════════════════════════════════════════════
+
+1. MUST create EXACTLY ${profile.workout_frequency || 3} workout days
+
+2. MUST match the user's GOAL with appropriate rep ranges and rest periods
+
+3. MUST ONLY use exercises possible with the AVAILABLE EQUIPMENT above
+   - If "Bodyweight Only" → NO barbells, dumbbells, cables, or machines
+   - If specific items listed → ONLY use those items
+
+4. MUST match complexity to EXPERIENCE LEVEL
+   - Beginners → simple movements, clear instructions
+   - Advanced → can use complex movements
+
+5. MUST AVOID exercises that stress any reported LIMITATIONS
+`;
+}
+
+function getFitnessCoachSystemPrompt(userProfile?: UserProfile | null): string {
+  const basePrompt = `You are TailorFit AI, a certified fitness coach. Generate a personalized workout plan.
+
+OUTPUT FORMAT - CRITICAL:
+- Output ONLY valid JSON, nothing else
+- Start with { and end with }
+- NO text before or after the JSON
+- NO markdown code blocks
+
+JSON STRUCTURE:
 {
-  "workout_name": "Descriptive program name",
-  "description": "Brief overview of approach and focus",
+  "workout_name": "Program name reflecting the goal",
+  "description": "2-3 sentence overview",
   "days": [
     {
-      "day_name": "Monday - Upper Push",
+      "day_name": "Day 1 - Focus (e.g., Upper Body)",
       "day_order": 1,
       "exercises": [
         {
-          "name": "bench press",
+          "name": "full exercise name with equipment type",
           "exercise_order": 1,
           "sets": 3,
           "reps": "8-10",
           "rest_seconds": 90,
-          "notes": "Focus on controlled eccentric, explosive concentric"
+          "notes": "Form cues"
         }
       ]
     }
   ]
 }
 
-EXERCISE NAMING (CRITICAL):
-Always use full exercise names with equipment type (e.g. 'barbell bench press' not 'bench press', 'seated cable row' not 'row'). Be specific so the exercise is unambiguous.
+EXERCISE NAMING - BE SPECIFIC:
+- "barbell bench press" NOT "bench press"
+- "dumbbell shoulder press" NOT "shoulder press"
+- "bodyweight squat" NOT "squat"
+- "pull up" or "chin up" (specify which)
 
-Use clear, specific exercise names:
-- "barbell bench press" NOT just "bench press"
-- "barbell squat" NOT just "squat"  
-- "barbell deadlift"
-- "pull up" or "chin up" (be specific)
-- "dumbbell shoulder press"
-- "dumbbell bicep curl"
-- "seated cable row" or "barbell row" (be specific)
-- "walking lunge" or "reverse lunge"
-- "push up"`;
+EXERCISE COUNT: 4-6 exercises per day
+
+EXERCISE EXAMPLES BY EQUIPMENT:
+
+Bodyweight Only:
+- push up, diamond push up, pike push up
+- pull up, chin up (if bar available)
+- bodyweight squat, jump squat, pistol squat
+- walking lunge, reverse lunge, split squat
+- plank, mountain climber, burpee
+- glute bridge, single leg glute bridge
+- dip (if parallel bars available)
+
+Dumbbells:
+- dumbbell bench press, dumbbell floor press
+- dumbbell row, dumbbell shoulder press
+- dumbbell bicep curl, dumbbell tricep extension
+- goblet squat, dumbbell lunges
+- dumbbell romanian deadlift
+
+Barbell:
+- barbell bench press, barbell row
+- barbell squat, barbell deadlift
+- overhead press, barbell curl
+
+Full Gym (can use any):
+- All of the above plus machines and cables
+- lat pulldown, seated cable row
+- leg press, leg curl, leg extension
+- cable fly, cable crossover`;
 
   if (userProfile) {
-    basePrompt += `
-
-USER'S PROFILE:
-- Goal: ${userProfile.fitness_goal || 'Not specified'}
-- Experience: ${userProfile.experience_level || 'Not specified'}
-- Equipment: ${userProfile.available_equipment?.join(', ') || 'Not specified'}
-- Workout Frequency: ${userProfile.workout_frequency || 'Not specified'} days/week
-- Limitations: ${userProfile.limitations || 'None reported'}
-
-DO NOT ASK ABOUT ANY OF THE ABOVE - YOU ALREADY HAVE THIS INFORMATION.
-Tailor your coaching to this specific user profile.`;
+    return basePrompt + formatUserProfile(userProfile);
   }
 
-  return basePrompt;
+  return basePrompt + `
+
+NOTE: No user profile available. Create a general 3-day full body program for beginners using basic gym equipment.`;
 }
 
 serve(async (req) => {
@@ -129,22 +194,21 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  const startTime = Date.now();
+
   try {
     const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY');
     if (!ANTHROPIC_API_KEY) {
-      console.error('ANTHROPIC_API_KEY is not set');
+      console.error('[generate-workout-plan] ANTHROPIC_API_KEY is not set');
       throw new Error('ANTHROPIC_API_KEY is not configured');
     }
 
-    // Get Supabase client
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     const { conversationId, userId } = await req.json();
-    console.log('Generating workout plan for conversation:', conversationId);
-
-
+    console.log('[generate-workout-plan] Starting for user:', userId);
 
     // Fetch user profile
     const { data: userProfile, error: profileError } = await supabase
@@ -154,16 +218,29 @@ serve(async (req) => {
       .single();
 
     if (profileError) {
-      console.log('No user profile found, continuing without it');
+      console.warn('[generate-workout-plan] No profile found:', profileError.message);
+    } else {
+      console.log('[generate-workout-plan] Profile loaded:', {
+        goal: userProfile.fitness_goal,
+        experience: userProfile.experience_level,
+        equipment: userProfile.available_equipment,
+        frequency: userProfile.workout_frequency,
+        limitations: userProfile.limitations
+      });
     }
 
-      // OPTIMIZATION: Skip conversation history - just use profile directly
-  const conversationHistory = [{
-    role: 'user',
-    content: 'Please create my personalized workout plan in JSON format based on my profile.'
-  }];
+    // Build system prompt with profile
+    const systemPrompt = getFitnessCoachSystemPrompt(userProfile);
+    console.log('[generate-workout-plan] System prompt length:', systemPrompt.length);
+
+    // Simple request message
+    const conversationHistory = [{
+      role: 'user',
+      content: 'Generate my personalized workout plan based on my profile. Output only the JSON.'
+    }];
 
     // Call Claude API
+    console.log('[generate-workout-plan] Calling Claude API...');
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -174,31 +251,38 @@ serve(async (req) => {
       body: JSON.stringify({
         model: 'claude-sonnet-4-5',
         max_tokens: 4096,
-        system: getFitnessCoachSystemPrompt(userProfile),
+        system: systemPrompt,
         messages: conversationHistory,
       }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Claude API error:', response.status, errorText);
+      console.error('[generate-workout-plan] Claude API error:', response.status, errorText);
       throw new Error(`Claude API error: ${response.status}`);
     }
 
     const data = await response.json();
     const aiResponse = data.content[0].text;
-    console.log('Claude response received, length:', aiResponse.length);
+    console.log('[generate-workout-plan] Response received, length:', aiResponse.length);
 
-    // Parse the JSON workout plan
+    // Parse JSON from response
     const jsonMatch = aiResponse.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
-      console.error('No valid JSON found in response');
+      console.error('[generate-workout-plan] No JSON found. Response:', aiResponse.substring(0, 500));
       throw new Error('No valid JSON found in AI response');
     }
 
-    const jsonStr = jsonMatch[0];
-    const workoutPlan = JSON.parse(jsonStr);
-    console.log('Parsed workout plan:', workoutPlan.workout_name);
+    const workoutPlan = JSON.parse(jsonMatch[0]);
+    console.log('[generate-workout-plan] Parsed plan:', workoutPlan.workout_name);
+    console.log('[generate-workout-plan] Days count:', workoutPlan.days?.length);
+
+    // Deactivate existing active plans for this user
+    await supabase
+      .from('workout_plans')
+      .update({ is_active: false })
+      .eq('user_id', userId)
+      .eq('is_active', true);
 
     // Save workout plan to database
     const { data: plan, error: planError } = await supabase
@@ -214,11 +298,11 @@ serve(async (req) => {
       .single();
 
     if (planError) {
-      console.error('Error inserting workout plan:', planError);
+      console.error('[generate-workout-plan] Error inserting plan:', planError);
       throw planError;
     }
 
-    console.log('Created workout plan:', plan.id);
+    console.log('[generate-workout-plan] Created plan:', plan.id);
 
     // Save workout days and exercises
     for (const day of workoutPlan.days) {
@@ -234,11 +318,11 @@ serve(async (req) => {
         .single();
 
       if (dayError) {
-        console.error('Error inserting workout day:', dayError);
+        console.error('[generate-workout-plan] Error inserting day:', dayError);
         throw dayError;
       }
 
-      console.log(`Created workout day: ${workoutDay.day_name}`);
+      console.log('[generate-workout-plan] Created day:', workoutDay.day_name);
 
       // Save exercises for this day
       for (let i = 0; i < day.exercises.length; i++) {
@@ -257,46 +341,53 @@ serve(async (req) => {
           });
         
         if (exerciseError) {
-          console.error('Error inserting exercise:', exerciseError);
+          console.error('[generate-workout-plan] Error inserting exercise:', exerciseError);
           throw exerciseError;
         }
       }
     }
 
     // Link conversation to workout plan
-    const { error: updateError } = await supabase
-      .from('conversations')
-      .update({ workout_plan_id: plan.id })
-      .eq('id', conversationId);
+    if (conversationId) {
+      const { error: updateError } = await supabase
+        .from('conversations')
+        .update({ workout_plan_id: plan.id })
+        .eq('id', conversationId);
 
-    if (updateError) {
-      console.error('Error updating conversation:', updateError);
-      throw updateError;
+      if (updateError) {
+        console.error('[generate-workout-plan] Error updating conversation:', updateError);
+        throw updateError;
+      }
+
+      // Save summary message
+      await supabase
+        .from('messages')
+        .insert({
+          conversation_id: conversationId,
+          role: 'assistant',
+          content: `Your ${workoutPlan.workout_name} is ready! 💪 Check it out in the Workouts tab.`
+        });
     }
 
-    // Save a summary message to the conversation (not the full JSON)
-    await supabase
-      .from('messages')
-      .insert({
-        conversation_id: conversationId,
-        role: 'assistant',
-        content: "Your plan is ready! 💪 Check it out in the Workouts tab."
-      });
-
-    console.log('Workout plan generation complete');
+    const duration = Date.now() - startTime;
+    console.log(`[generate-workout-plan] Complete in ${duration}ms`);
 
     return new Response(
       JSON.stringify({ 
         success: true, 
         workoutPlanId: plan.id,
-        workoutName: workoutPlan.workout_name
+        workoutName: workoutPlan.workout_name,
+        daysCount: workoutPlan.days?.length
       }), 
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       }
     );
+
   } catch (error) {
-    console.error('Error in generate-workout-plan function:', error);
+    const duration = Date.now() - startTime;
+    console.error(`[generate-workout-plan] Failed after ${duration}ms:`, error);
+    
     return new Response(
       JSON.stringify({ 
         error: error instanceof Error ? error.message : 'Unknown error',
