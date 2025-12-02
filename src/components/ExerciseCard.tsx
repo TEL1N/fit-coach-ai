@@ -44,7 +44,25 @@ const ExerciseCard = ({
       try {
         const match = await findExerciseMatch(exerciseName);
         
-        if (match && match.confidence >= 0.8) {
+        if (!match) {
+          console.warn('❌ No match found:', {
+            exerciseName,
+            reason: 'No WGER exercise matched'
+          });
+          setIsLoading(false);
+          return;
+        }
+
+        console.log('🔍 Exercise match found:', {
+          originalName: exerciseName,
+          matchedName: match.exercise.name,
+          confidence: `${(match.confidence * 100).toFixed(0)}%`,
+          hasImages: !!match.exercise.image_urls && match.exercise.image_urls.length > 0,
+          imageCount: match.exercise.image_urls?.length || 0,
+          wgerId: match.exercise.wger_id
+        });
+        
+        if (match.confidence >= 0.8) {
           // Get the first image URL if available
           const imageUrls = match.exercise.image_urls;
           if (imageUrls && imageUrls.length > 0) {
@@ -53,11 +71,33 @@ const ExerciseCard = ({
               ? imageUrls[0] 
               : `https://wger.de${imageUrls[0]}`;
             setImageUrl(fullUrl);
+            console.log('✅ Image loaded:', {
+              exerciseName,
+              imageUrl: fullUrl
+            });
+          } else {
+            console.warn('⚠️ Match found but no images available:', {
+              exerciseName,
+              matchedName: match.exercise.name,
+              confidence: `${(match.confidence * 100).toFixed(0)}%`,
+              reason: 'WGER exercise has no images'
+            });
           }
           setConfidence(match.confidence);
+        } else {
+          console.warn('⚠️ Low confidence match (< 80%):', {
+            exerciseName,
+            matchedName: match.exercise.name,
+            confidence: `${(match.confidence * 100).toFixed(0)}%`,
+            hasImages: !!match.exercise.image_urls && match.exercise.image_urls.length > 0,
+            reason: 'Confidence too low to use'
+          });
         }
       } catch (error) {
-        console.error('Error finding exercise match:', error);
+        console.error('❌ Error finding exercise match:', {
+          exerciseName,
+          error
+        });
       } finally {
         setIsLoading(false);
       }
