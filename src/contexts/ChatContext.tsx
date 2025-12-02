@@ -19,6 +19,7 @@ interface ChatContextType {
   conversationId: string | null;
   workoutPlanId: string | null;
   userProfile: any;
+  hasUsedFreeModification: boolean;
   isLoading: boolean;
   setMessages: (messages: Message[] | ((prev: Message[]) => Message[])) => void;
   setConversationId: (id: string | null) => void;
@@ -26,6 +27,7 @@ interface ChatContextType {
   loadConversation: (convId: string) => Promise<void>;
   refreshConversations: () => Promise<void>;
   refreshUserProfile: () => Promise<void>;
+  setHasUsedFreeModification: (value: boolean) => void;
 }
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
@@ -43,6 +45,7 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [workoutPlanId, setWorkoutPlanId] = useState<string | null>(null);
   const [userProfile, setUserProfile] = useState<any>(null);
+  const [hasUsedFreeModification, setHasUsedFreeModification] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [hasFetchedOnce, setHasFetchedOnce] = useState(false);
 
@@ -118,8 +121,11 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
           experience_level: profile.experience_level,
           available_equipment: profile.available_equipment,
           workout_frequency: profile.workout_frequency,
-          limitations: profile.limitations || 'None'
+          limitations: profile.limitations || 'None',
+          has_used_free_modification: profile.has_used_free_modification || false
         });
+        // Set the free modification flag
+        setHasUsedFreeModification(profile.has_used_free_modification || false);
       } else {
         console.warn('[ChatContext] ⚠️ No profile found for user - onboarding may not be complete');
       }
@@ -150,54 +156,10 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
         }
 
         convId = newConv.id;
-
-        // Send welcome message
-        let welcomeMessage = "I'm TailorFit. ";
         
-        if (profile) {
-          const frequency = profile.workout_frequency ? `${profile.workout_frequency}-day` : '';
-          const goal = profile.fitness_goal || 'your fitness goals';
-          
-          // Map equipment from database keys to readable names
-          const EQUIPMENT_DISPLAY_MAP: Record<string, string> = {
-            'full_gym': 'full gym equipment',
-            'bodyweight': 'bodyweight only',
-            'barbell': 'barbell',
-            'dumbbells': 'dumbbells',
-            'squat_rack': 'squat rack',
-            'bench': 'bench',
-            'pullup_bar': 'pull-up bar',
-            'cable_machine': 'cable machine',
-            'kettlebells': 'kettlebells',
-            'resistance_bands': 'resistance bands',
-          };
-          
-          let equipment = 'available equipment';
-          if (profile.available_equipment && profile.available_equipment.length > 0) {
-            const equipmentNames = profile.available_equipment
-              .map(eq => EQUIPMENT_DISPLAY_MAP[eq] || eq)
-              .join(', ');
-            equipment = equipmentNames;
-          }
-          
-          welcomeMessage += `Based on your profile, I'll build you a ${frequency} plan for ${goal} using ${equipment}. Ready to generate your plan, or any questions first?`;
-        } else {
-          welcomeMessage += "Ready to create your personalized workout plan? Just say 'create my plan' or ask me any fitness questions first.";
-        }
-
-        const { data: welcomeMsg } = await supabase
-          .from('messages')
-          .insert({
-            conversation_id: convId,
-            role: 'assistant',
-            content: welcomeMessage,
-          })
-          .select()
-          .single();
-
-        if (welcomeMsg) {
-          setMessages([welcomeMsg as Message]);
-        }
+        // Don't insert welcome messages here - Chat.tsx handles the animated welcome sequence
+        // Messages will be empty initially, triggering the welcome animation in Chat.tsx
+        setMessages([]);
       } else {
         convId = conversations[0].id;
         
@@ -248,6 +210,7 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
         conversationId,
         workoutPlanId,
         userProfile,
+        hasUsedFreeModification,
         isLoading: isLoading && !hasFetchedOnce,
         setMessages,
         setConversationId,
@@ -255,6 +218,7 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
         loadConversation,
         refreshConversations,
         refreshUserProfile,
+        setHasUsedFreeModification,
       }}
     >
       {children}

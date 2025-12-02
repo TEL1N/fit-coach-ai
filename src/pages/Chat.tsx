@@ -6,12 +6,19 @@ import { Input } from "@/components/ui/input";
 import MobileTabBar from "@/components/MobileTabBar";
 import ConversationSelector from "@/components/ConversationSelector";
 import UpgradeModal from "@/components/UpgradeModal";
+import TypingIndicator from "@/components/TypingIndicator";
 import { Send, Zap, ExternalLink, Sparkles } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { sendClaudeMessage } from "@/lib/claudeService";
 import { getFitnessCoachSystemPrompt } from "@/lib/fitnessCoachPrompt";
 import { useChatContext } from "@/contexts/ChatContext";
 import { useWorkoutPlan } from "@/contexts/WorkoutPlanContext";
+
+// Welcome messages for new conversations
+const WELCOME_MESSAGES = [
+  "Hi, I'm TailorFit! Your AI-powered personal trainer, built to craft the perfect workout plan tailored just for you.",
+  "I've already created a starter plan based on your profile. Want to ease into it? Go harder? Work around an injury? Just tell me what you need and I'll adjust your plan."
+];
 
 interface Message {
   id: string;
@@ -35,12 +42,26 @@ const Chat = () => {
     setWorkoutPlanId,
     loadConversation,
     refreshUserProfile,
+    setHasUsedFreeModification,
   } = useChatContext();
-  const { workoutPlan, setWorkoutPlanDirectly } = useWorkoutPlan();
+  const { workoutPlan, setWorkoutPlanDirectly, refreshWorkoutPlan } = useWorkoutPlan();
   const [isSending, setIsSending] = useState(false);
   const [message, setMessage] = useState("");
   const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
   const [hasExistingPlan, setHasExistingPlan] = useState(false);
+  
+  // Welcome sequence state
+  const [welcomeStep, setWelcomeStep] = useState(0); // 0 = not started, 1 = first msg, 2 = second msg, 3 = done
+  const [showTypingIndicator, setShowTypingIndicator] = useState(false);
+  const [welcomeMessages, setWelcomeMessages] = useState<Message[]>([]);
+  const welcomeSequenceStartedRef = useRef(false);
+  
+  // Sync hasExistingPlan with workoutPlan from context
+  useEffect(() => {
+    if (workoutPlan) {
+      setHasExistingPlan(true);
+    }
+  }, [workoutPlan]);
   const [showSuccessBanner, setShowSuccessBanner] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -107,7 +128,75 @@ const Chat = () => {
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages]);
+  }, [messages, welcomeMessages, showTypingIndicator]);
+
+  // Welcome sequence animation effect
+  useEffect(() => {
+    // Only start welcome sequence for new conversations with no messages
+    if (!isLoading && conversationId && messages.length === 0 && welcomeStep === 0 && !welcomeSequenceStartedRef.current) {
+      welcomeSequenceStartedRef.current = true;
+      
+      // Start the welcome sequence
+      setShowTypingIndicator(true);
+      
+      // First message after 1.5s
+      const timer1 = setTimeout(() => {
+        setShowTypingIndicator(false);
+        const firstMsg: Message = {
+          id: 'welcome-1',
+          role: 'assistant',
+          content: WELCOME_MESSAGES[0],
+          created_at: new Date().toISOString()
+        };
+        setWelcomeMessages([firstMsg]);
+        setWelcomeStep(1);
+        playReceiveSound();
+        
+        // Show typing indicator for second message
+        setTimeout(() => {
+          setShowTypingIndicator(true);
+          
+          // Second message after 1s more
+          setTimeout(() => {
+            setShowTypingIndicator(false);
+            const secondMsg: Message = {
+              id: 'welcome-2',
+              role: 'assistant',
+              content: WELCOME_MESSAGES[1],
+              created_at: new Date().toISOString()
+            };
+            setWelcomeMessages(prev => [...prev, secondMsg]);
+            setWelcomeStep(2);
+            playReceiveSound();
+            
+            // Save welcome messages to database
+            saveWelcomeMessages(conversationId);
+          }, 1000);
+        }, 500);
+      }, 1500);
+      
+      return () => clearTimeout(timer1);
+    }
+  }, [isLoading, conversationId, messages.length, welcomeStep]);
+
+  // Function to save welcome messages to database
+  const saveWelcomeMessages = async (convId: string) => {
+    try {
+      // Insert both welcome messages
+      for (const content of WELCOME_MESSAGES) {
+        await supabase
+          .from('messages')
+          .insert({
+            conversation_id: convId,
+            role: 'assistant',
+            content: content,
+          });
+      }
+      console.log('[Chat] Welcome messages saved to database');
+    } catch (error) {
+      console.error('[Chat] Error saving welcome messages:', error);
+    }
+  };
 
   const handleConversationChange = async (newConvId: string | null) => {
     if (newConvId === null) {
@@ -213,6 +302,9 @@ const Chat = () => {
     // This ensures the AI has access to onboarding data even if the context
     // was initialized before the profile was saved
     refreshUserProfile();
+    
+    // Refresh workout plan context to catch any background-generated plans
+    refreshWorkoutPlan(true);
 
     // Check for existing workout plans (free tier check)
     const checkExistingPlans = async () => {
@@ -226,6 +318,9 @@ const Chat = () => {
         .eq('is_active', true);
 
       setHasExistingPlan(plans && plans.length > 0);
+      
+      // Also log for debugging
+      console.log('[Chat] Existing plans check:', plans?.length || 0, 'active plans found');
     };
 
     checkExistingPlans();
@@ -238,7 +333,7 @@ const Chat = () => {
     });
 
     return () => subscription.unsubscribe();
-  }, [navigate, location, refreshUserProfile]);
+  }, [navigate, location, refreshUserProfile, refreshWorkoutPlan]);
 
   const handleSendMessage = async () => {
     if (!message.trim() || !conversationId || isSending) return;
@@ -306,9 +401,33 @@ const Chat = () => {
         console.error('[Chat] No session found - cannot fetch profile');
       }
       
-      const systemPrompt = getFitnessCoachSystemPrompt(profileToUse);
+      // Check if this looks like a modification request
+      const modificationKeywords = ['ease', 'easier', 'harder', 'intense', 'injury', 'hurt', 'pain', 
+        'shorter', 'longer', 'less', 'more', 'reduce', 'increase', 'change', 'modify', 'adjust',
+        'cardio', 'strength', 'rest', 'recovery', 'beginner', 'advanced'];
+      const isModificationRequest = hasExistingPlan && 
+        modificationKeywords.some(keyword => userMessage.toLowerCase().includes(keyword));
+      
+      // Check if user has already used their free modification
+      const { data: currentProfile } = await supabase
+        .from('user_fitness_profiles')
+        .select('has_used_free_modification')
+        .eq('user_id', session?.user?.id)
+        .single();
+      
+      const hasUsedModification = currentProfile?.has_used_free_modification || false;
+      
+      if (isModificationRequest && hasUsedModification) {
+        // User has already used their free modification - show upgrade modal
+        setIsUpgradeModalOpen(true);
+        setIsSending(false);
+        return;
+      }
+      
+      const systemPrompt = getFitnessCoachSystemPrompt(profileToUse, hasExistingPlan);
       console.log('[Chat] System prompt includes profile:', systemPrompt.includes('USER\'S FITNESS PROFILE'));
-      console.log('[Chat] System prompt length:', systemPrompt.length);
+      console.log('[Chat] Has existing plan:', hasExistingPlan);
+      console.log('[Chat] Is modification request:', isModificationRequest);
       
       const isWorkoutPlanRequest = userMessage.toLowerCase().includes('workout plan') || 
                                    userMessage.toLowerCase().includes('create my') ||
@@ -333,6 +452,66 @@ const Chat = () => {
         setMessages(prev => [...prev, aiMsg as Message]);
         // Play receive sound
         playReceiveSound();
+      }
+      
+      // Check if AI confirmed a modification (contains "update your plan" or similar)
+      const confirmationPhrases = ["update your plan", "updating your plan", "modify your plan", 
+        "adjust your plan", "i'll update", "i'll modify", "i'll adjust", "changes made"];
+      const isModificationConfirmation = isModificationRequest && 
+        confirmationPhrases.some(phrase => aiResponse.toLowerCase().includes(phrase));
+      
+      if (isModificationConfirmation && workoutPlan) {
+        console.log('[Chat] AI confirmed modification, calling modify-workout-plan edge function');
+        
+        // Call the modification edge function
+        const { data: modResult, error: modError } = await supabase.functions.invoke('modify-workout-plan', {
+          body: {
+            userId: session?.user?.id,
+            workoutPlanId: workoutPlan.id,
+            modificationRequest: userMessage,
+            userProfile: profileToUse
+          }
+        });
+        
+        if (modError) {
+          console.error('[Chat] Modification error:', modError);
+          toast({
+            title: "Error",
+            description: "Failed to modify your plan. Please try again.",
+            variant: "destructive",
+          });
+        } else if (modResult?.success) {
+          console.log('[Chat] Plan modified successfully:', modResult.summary);
+          
+          // Refresh the workout plan context
+          await refreshWorkoutPlan(true);
+          
+          // Update the local state
+          setHasUsedFreeModification(true);
+          
+          // Show success message
+          toast({
+            title: "Plan Updated! 🎉",
+            description: modResult.summary || "Your workout plan has been modified.",
+          });
+          
+          // Add a follow-up message from AI
+          const followUpMsg = `Done! ${modResult.summary} Check your Workouts tab to see the updated plan.`;
+          const { data: followUp } = await supabase
+            .from('messages')
+            .insert({
+              conversation_id: conversationId,
+              role: 'assistant',
+              content: followUpMsg,
+            })
+            .select()
+            .single();
+          
+          if (followUp) {
+            setMessages(prev => [...prev, followUp as Message]);
+            playReceiveSound();
+          }
+        }
       }
 
       // Check if response contains JSON workout plan and save it
@@ -489,7 +668,7 @@ const Chat = () => {
   const handleGenerateWorkoutPlan = async () => {
     if (!conversationId || isSending) return;
 
-    // Check if user already has an active workout plan (free tier limitation)
+    // Check if user already has an active workout plan
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
@@ -501,7 +680,17 @@ const Chat = () => {
         .eq('is_active', true);
 
       if (existingPlans && existingPlans.length > 0) {
-        setIsUpgradeModalOpen(true);
+        // User already has a plan - offer to view it instead of showing upgrade modal
+        toast.info("You already have a workout plan! Redirecting to view it.", {
+          action: {
+            label: "View Plan",
+            onClick: () => navigate("/workouts", { state: { refreshPlan: true } }),
+          },
+        });
+        // Navigate after a short delay
+        setTimeout(() => {
+          navigate("/workouts", { state: { refreshPlan: true } });
+        }, 1500);
         return;
       }
     } catch (error) {
@@ -692,6 +881,31 @@ const Chat = () => {
       {/* Messages Area - Scrollable */}
       <div className="flex-1 px-6 py-8 overflow-y-auto min-h-0" style={{ paddingBottom: 'calc(14rem + env(safe-area-inset-bottom))' }}>
         <div className="max-w-2xl mx-auto">
+          {/* Show welcome messages if no DB messages yet */}
+          {messages.length === 0 && welcomeMessages.map((msg, index) => (
+            <div
+              key={msg.id}
+              className="mb-4 flex justify-start animate-fade-in"
+              style={{ animationDelay: `${index * 50}ms` }}
+            >
+              <div className="max-w-[75%] rounded-[24px] px-5 py-3.5 glass-card border-white/10 text-foreground shadow-premium relative">
+                <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent rounded-[24px] pointer-events-none"></div>
+                <p className="text-[15px] leading-relaxed whitespace-pre-wrap break-words font-normal relative z-10">
+                  {msg.content}
+                </p>
+                <p className="text-[11px] mt-1 relative z-10 text-muted-foreground/60">
+                  {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </p>
+              </div>
+            </div>
+          ))}
+
+          {/* Show typing indicator during welcome sequence */}
+          {showTypingIndicator && messages.length === 0 && (
+            <TypingIndicator />
+          )}
+
+          {/* Regular messages from database */}
           {messages.map((msg, index) => (
             <div
               key={msg.id}
@@ -726,16 +940,9 @@ const Chat = () => {
             </div>
           ))}
 
+          {/* Typing indicator when AI is responding */}
           {isSending && (
-            <div className="mb-3 flex justify-start animate-fade-in">
-              <div className="max-w-[75%] rounded-[24px] px-4 py-3 glass-card border-white/10">
-                <div className="flex items-center gap-1.5">
-                  <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0ms', animationDuration: '1s' }}></div>
-                  <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '200ms', animationDuration: '1s' }}></div>
-                  <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '400ms', animationDuration: '1s' }}></div>
-                </div>
-              </div>
-            </div>
+            <TypingIndicator />
           )}
 
           <div ref={messagesEndRef} />
@@ -749,7 +956,7 @@ const Chat = () => {
       >
         <div className="max-w-2xl mx-auto">
           <Button
-            onClick={handleGenerateWorkoutPlan}
+            onClick={hasExistingPlan ? () => navigate("/workouts", { state: { refreshPlan: true } }) : handleGenerateWorkoutPlan}
             disabled={isSending}
             className="w-full mb-4 h-12 rounded-full gradient-energy shadow-glow-md font-bold transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] hover:shadow-glow-lg"
           >
@@ -759,6 +966,11 @@ const Chat = () => {
                   <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
                   <span>Generating Your Plan...</span>
                 </div>
+              </>
+            ) : hasExistingPlan ? (
+              <>
+                <ExternalLink className="w-4 h-4 mr-2" />
+                View My Workout Plan
               </>
             ) : (
               <>
