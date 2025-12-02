@@ -270,9 +270,9 @@ const WorkoutSession = ({ dayName, exercises, onComplete, onExit }: WorkoutSessi
         )}
       </div>
 
-      {/* Fixed Bottom Action Button */}
+      {/* Bottom Action Button */}
       <div 
-        className="fixed bottom-0 left-0 right-0 bg-card/95 backdrop-blur-xl border-t border-border px-6 py-4 z-50"
+        className="bg-card border-t border-border px-6 py-4 flex-shrink-0"
         style={{ 
           paddingBottom: 'calc(1rem + env(safe-area-inset-bottom))' 
         }}
