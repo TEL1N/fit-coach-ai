@@ -12,6 +12,7 @@ import WorkoutSession from "@/components/WorkoutSession";
 import { useWorkoutPlan } from "@/contexts/WorkoutPlanContext";
 import { Calendar, Clock, Dumbbell, Plus, ChevronDown, ChevronUp, MessageSquare, Pencil, Trash2, Play, CheckCircle2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   Collapsible,
   CollapsibleContent,
@@ -317,7 +318,7 @@ const Workouts = () => {
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+        <div className="shimmer w-12 h-12 rounded-full"></div>
       </div>
     );
   }
