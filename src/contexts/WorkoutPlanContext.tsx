@@ -28,7 +28,6 @@ interface WorkoutPlan {
 
 interface WorkoutPlanContextType {
   workoutPlan: WorkoutPlan | null;
-  exerciseMatchCache: Map<string, { imageUrl: string | null; confidence: number }>;
   isLoading: boolean;
   refreshWorkoutPlan: (force?: boolean) => Promise<void>;
   clearCache: () => void;
@@ -46,7 +45,6 @@ export const useWorkoutPlan = () => {
 
 export const WorkoutPlanProvider = ({ children }: { children: ReactNode }) => {
   const [workoutPlan, setWorkoutPlan] = useState<WorkoutPlan | null>(null);
-  const [exerciseMatchCache, setExerciseMatchCache] = useState<Map<string, { imageUrl: string | null; confidence: number }>>(new Map());
   const [isLoading, setIsLoading] = useState(true);
   const [hasFetchedOnce, setHasFetchedOnce] = useState(false);
   
@@ -157,7 +155,6 @@ export const WorkoutPlanProvider = ({ children }: { children: ReactNode }) => {
 
   const clearCache = () => {
     setWorkoutPlan(null);
-    setExerciseMatchCache(new Map());
     setHasFetchedOnce(false);
   };
   // Load ONLY on mount, NEVER reload automatically
@@ -172,7 +169,6 @@ export const WorkoutPlanProvider = ({ children }: { children: ReactNode }) => {
       <WorkoutPlanContext.Provider
         value={{
           workoutPlan,
-          exerciseMatchCache,
           isLoading: isLoading && !hasFetchedOnce,
           refreshWorkoutPlan,
           clearCache,

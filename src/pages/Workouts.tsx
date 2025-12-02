@@ -58,7 +58,7 @@ const Workouts = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
-  const { workoutPlan: contextWorkoutPlan, exerciseMatchCache, isLoading, refreshWorkoutPlan, clearCache } = useWorkoutPlan();
+  const { workoutPlan: contextWorkoutPlan, isLoading, refreshWorkoutPlan, clearCache } = useWorkoutPlan();
   const [localWorkoutPlan, setLocalWorkoutPlan] = useState<WorkoutPlan | null>(null);
   const [expandedDays, setExpandedDays] = useState<Set<string>>(new Set());
   const [isEditSheetOpen, setIsEditSheetOpen] = useState(false);
@@ -472,7 +472,6 @@ const Workouts = () => {
                                     reps={exercise.reps}
                                     restSeconds={exercise.rest_seconds}
                                     notes={exercise.notes}
-                                    cachedMatch={exercise.exercise_name ? exerciseMatchCache.get(exercise.exercise_name) : undefined}
                                   />
                                 </div>
                               </div>
