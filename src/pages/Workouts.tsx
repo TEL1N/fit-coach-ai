@@ -1,63 +1,3 @@
-  const handleSaveChanges = async () => {
-    if (!localWorkoutPlan) {
-      console.error('[Workouts] No local workout plan to save');
-      return;
-    }
-
-    try {
-      let savedCount = 0;
-      let errorCount = 0;
-
-      for (const day of localWorkoutPlan.days) {
-        for (const exercise of day.exercises) {
-          const { error } = await supabase
-            .from('workout_exercises')
-            .update({
-              exercise_name: exercise.exercise_name,
-              sets: exercise.sets,
-              reps: exercise.reps,
-              rest_seconds: exercise.rest_seconds,
-              notes: exercise.notes,
-            })
-            .eq('id', exercise.id);
-
-          if (error) {
-            console.error('[Workouts] Error saving exercise:', exercise.id, error);
-            errorCount++;
-          } else {
-            savedCount++;
-          }
-        }
-      }
-
-      if (errorCount > 0) {
-        toast({
-          title: "Partial save",
-          description: `Saved ${savedCount} exercises, but ${errorCount} failed.`,
-          variant: "destructive",
-        });
-      } else {
-        toast({
-          title: "Changes saved",
-          description: "Your workout plan has been updated successfully.",
-        });
-      }
-
-      await refreshWorkoutPlan(true);
-      setIsEditMode(false);
-      setEditingExerciseId(null);
-      setOriginalPlan(null);
-      setHasPendingChanges(false);
-    } catch (error) {
-      console.error('[Workouts] Error saving changes:', error);
-      toast({
-        title: "Error",
-        description: "Failed to save changes. Please try again.",
-        variant: "destructive",
-      });
-    }
-  };
-
 import { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -124,7 +64,6 @@ const Workouts = () => {
   const [isEditMode, setIsEditMode] = useState(false);
   const [editingExerciseId, setEditingExerciseId] = useState<string | null>(null);
   const [originalPlan, setOriginalPlan] = useState<WorkoutPlan | null>(null);
-  const [hasPendingChanges, setHasPendingChanges] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [activeWorkoutDayId, setActiveWorkoutDayId] = useState<string | null>(null);
   const [completedExercises, setCompletedExercises] = useState<Set<string>>(new Set());
@@ -594,28 +533,6 @@ const Workouts = () => {
           </Card>
         )}
       </div>
-
-      {/* Fixed Save/Cancel Actions - Show When Changes Pending */}
-      {isEditMode && hasPendingChanges && (
-        <div
-          className="fixed left-0 right-0 bg-card/95 backdrop-blur-xl border-t border-border px-6 py-4 flex gap-3 z-40"
-          style={{ bottom: 'calc(5rem + env(safe-area-inset-bottom))' }}
-        >
-          <Button
-            variant="outline"
-            className="flex-1 h-12 rounded-xl font-medium"
-            onClick={handleCancelEdit}
-          >
-            Cancel
-          </Button>
-          <Button
-            className="flex-1 h-12 rounded-xl font-semibold"
-            onClick={handleSaveChanges}
-          >
-            Save Changes
-          </Button>
-        </div>
-      )}
 
       <EditPlanBottomSheet
         isOpen={isEditSheetOpen}
