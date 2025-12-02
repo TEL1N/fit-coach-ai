@@ -141,101 +141,66 @@ const Workouts = () => {
     setOriginalPlan(null);
   };
 
-  const handleSaveChanges = async () => {
-    if (!workoutPlan) {
-      console.error('[Workouts] No workout plan to save');
-      return;
-    }
-
-    console.log('[Workouts] Starting save changes...');
-    console.log('[Workouts] Days to save:', workoutPlan.days.length);
-
+  const handleUpdateExercise = async (dayId: string, exerciseId: string, updates: Partial<Exercise>) => {
+    console.log('[Workouts] Saving exercise to database:', exerciseId, 'with:', updates);
+    
     try {
-      // Update each exercise in the database
-      let savedCount = 0;
-      let errorCount = 0;
+      // Save directly to database
+      const { error } = await supabase
+        .from('workout_exercises')
+        .update({
+          exercise_name: updates.exercise_name,
+          sets: updates.sets,
+          reps: String(updates.reps),
+          rest_seconds: updates.rest_seconds,
+          notes: updates.notes,
+        })
+        .eq('id', exerciseId);
       
-      for (const day of workoutPlan.days) {
-        for (const exercise of day.exercises) {
-          console.log('[Workouts] Saving exercise:', exercise.id, exercise.exercise_name);
-          
-          const { error } = await supabase
-            .from('workout_exercises')
-            .update({
-              exercise_name: exercise.exercise_name,
-              sets: exercise.sets,
-              reps: String(exercise.reps), // Ensure reps is a string
-              rest_seconds: exercise.rest_seconds,
-              notes: exercise.notes,
-            })
-            .eq('id', exercise.id);
-          
-          if (error) {
-            console.error('[Workouts] Error saving exercise:', exercise.id, error);
-            errorCount++;
-          } else {
-            savedCount++;
-          }
-        }
-      }
-
-      console.log('[Workouts] Save complete. Saved:', savedCount, 'Errors:', errorCount);
-
-      if (errorCount > 0) {
+      if (error) {
+        console.error('[Workouts] Error saving exercise:', error);
         toast({
-          title: "Partial save",
-          description: `Saved ${savedCount} exercises, but ${errorCount} failed.`,
+          title: "Error",
+          description: "Failed to save exercise. Please try again.",
           variant: "destructive",
         });
-      } else {
-        toast({
-          title: "Changes saved",
-          description: "Your workout plan has been updated successfully.",
-        });
+        return;
       }
-
-      // Refresh workout plan from context with force refresh
-      await refreshWorkoutPlan(true);
       
-      setIsEditMode(false);
-      setEditingExerciseId(null);
-      setOriginalPlan(null);
+      console.log('[Workouts] Exercise saved successfully');
+      
+      // Update local state to reflect the change
+      setLocalWorkoutPlan(prev => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          days: prev.days.map(day =>
+            day.id === dayId
+              ? {
+                  ...day,
+                  exercises: day.exercises.map(ex =>
+                    ex.id === exerciseId ? { ...ex, ...updates } : ex
+                  )
+                }
+              : day
+          )
+        };
+      });
+      
+      toast({
+        title: "Saved",
+        description: "Exercise updated successfully.",
+      });
+      
     } catch (error) {
-      console.error('[Workouts] Error saving changes:', error);
+      console.error('[Workouts] Error saving exercise:', error);
       toast({
         title: "Error",
-        description: "Failed to save changes. Please try again.",
+        description: "Failed to save exercise. Please try again.",
         variant: "destructive",
       });
     }
-  };
-
-  const handleUpdateExercise = (dayId: string, exerciseId: string, updates: Partial<Exercise>) => {
-    console.log('[Workouts] Updating exercise:', exerciseId, 'with:', updates);
     
-    setLocalWorkoutPlan(prev => {
-      if (!prev) {
-        console.log('[Workouts] No previous plan to update');
-        return prev;
-      }
-      
-      const updatedPlan = {
-        ...prev,
-        days: prev.days.map(day =>
-          day.id === dayId
-            ? {
-                ...day,
-                exercises: day.exercises.map(ex =>
-                  ex.id === exerciseId ? { ...ex, ...updates } : ex
-                )
-              }
-            : day
-        )
-      };
-      
-      console.log('[Workouts] Updated local plan:', updatedPlan);
-      return updatedPlan;
-    });
     setEditingExerciseId(null);
   };
 
@@ -615,17 +580,10 @@ const Workouts = () => {
           }}
         >
           <Button
-            variant="outline"
             className="flex-1 h-12 rounded-xl font-medium"
             onClick={handleCancelEdit}
           >
-            Cancel
-          </Button>
-          <Button
-            className="flex-1 h-12 rounded-xl font-medium"
-            onClick={handleSaveChanges}
-          >
-            Save Changes
+            Done Editing
           </Button>
         </div>
       )}
