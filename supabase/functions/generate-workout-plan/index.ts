@@ -307,7 +307,8 @@ serve(async (req) => {
 
     if (planError) throw planError;
 
-    // Save days and exercises
+    // Save days first (need IDs for exercises)
+    const workoutDays = [];
     for (const day of workoutPlan.days) {
       const { data: workoutDay, error: dayError } = await supabase
         .from('workout_days')
@@ -321,22 +322,34 @@ serve(async (req) => {
         .single();
 
       if (dayError) throw dayError;
+      workoutDays.push({ day, workoutDay });
+    }
 
+    // Batch insert all exercises at once (much faster than sequential)
+    const allExercises = [];
+    for (const { day, workoutDay } of workoutDays) {
       for (let i = 0; i < day.exercises.length; i++) {
         const exercise = day.exercises[i];
-        await supabase
-          .from('workout_exercises')
-          .insert({
-            workout_day_id: workoutDay.id,
-            exercise_id: null,
-            exercise_name: exercise.name,
-            exercise_order: exercise.exercise_order || i + 1,
-            sets: exercise.sets,
-            reps: String(exercise.reps),
-            rest_seconds: exercise.rest_seconds,
-            notes: exercise.notes || null
-          });
+        allExercises.push({
+          workout_day_id: workoutDay.id,
+          exercise_id: null,
+          exercise_name: exercise.name,
+          exercise_order: exercise.exercise_order || i + 1,
+          sets: exercise.sets,
+          reps: String(exercise.reps),
+          rest_seconds: exercise.rest_seconds,
+          notes: exercise.notes || null
+        });
       }
+    }
+
+    // Single batch insert for all exercises
+    if (allExercises.length > 0) {
+      const { error: exercisesError } = await supabase
+        .from('workout_exercises')
+        .insert(allExercises);
+
+      if (exercisesError) throw exercisesError;
     }
 
     // Link conversation

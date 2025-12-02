@@ -78,6 +78,18 @@ const Onboarding = () => {
 
       if (error) throw error;
 
+      // Trigger background plan generation (fire-and-forget)
+      // Plan will be ready when user reaches chat or clicks generate button
+      supabase.functions.invoke('generate-workout-plan', {
+        body: { 
+          userId: user.id,
+          // No conversationId for background generation - will be linked later if needed
+        }
+      }).catch(err => {
+        // Silently fail - user can still generate manually
+        console.error('[Onboarding] Background plan generation failed:', err);
+      });
+
       toast.success("Profile created! Let's start your fitness journey!");
       navigate("/home");
     } catch (error: any) {

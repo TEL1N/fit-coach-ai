@@ -35,7 +35,7 @@ const Chat = () => {
     setWorkoutPlanId,
     loadConversation,
   } = useChatContext();
-  const { workoutPlan } = useWorkoutPlan();
+  const { workoutPlan, setWorkoutPlanDirectly } = useWorkoutPlan();
   const [isSending, setIsSending] = useState(false);
   const [message, setMessage] = useState("");
   const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
@@ -457,6 +457,44 @@ const Chat = () => {
 
       if (data?.success) {
         console.log(`[Chat] Workout plan generated: ${data.workoutName}`);
+        
+        // Cache plan in context immediately for instant display
+        const cacheStartTime = performance.now();
+        const { data: cachedPlan } = await supabase
+          .from('workout_plans')
+          .select(`
+            *,
+            conversations(id),
+            workout_days(
+              *,
+              workout_exercises(*)
+            )
+          `)
+          .eq('id', data.workoutPlanId)
+          .single();
+
+        if (cachedPlan) {
+          // Transform nested data structure
+          const daysWithExercises = (cachedPlan.workout_days || [])
+            .sort((a: any, b: any) => a.day_order - b.day_order)
+            .map((day: any) => ({
+              ...day,
+              exercises: (day.workout_exercises || [])
+                .sort((a: any, b: any) => a.exercise_order - b.exercise_order)
+            }));
+
+          const planData = {
+            id: cachedPlan.id,
+            name: cachedPlan.name,
+            description: cachedPlan.description,
+            days: daysWithExercises,
+            conversationId: cachedPlan.conversations?.[0]?.id
+          };
+
+          // Cache plan directly in context for instant display
+          setWorkoutPlanDirectly(planData);
+        }
+        console.log(`[Chat] Plan cached in ${(performance.now() - cacheStartTime).toFixed(0)}ms`);
         
         // Reload messages to get the AI's response
         const messagesStartTime = performance.now();

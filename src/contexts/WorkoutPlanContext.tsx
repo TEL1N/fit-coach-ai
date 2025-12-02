@@ -30,6 +30,7 @@ interface WorkoutPlanContextType {
   workoutPlan: WorkoutPlan | null;
   isLoading: boolean;
   refreshWorkoutPlan: (force?: boolean) => Promise<void>;
+  setWorkoutPlanDirectly: (plan: WorkoutPlan) => void;
   clearCache: () => void;
 }
 
@@ -51,8 +52,15 @@ export const WorkoutPlanProvider = ({ children }: { children: ReactNode }) => {
   // OPTIMIZATION: Prevent duplicate loads
   const loadingRef = useRef(false);
   const lastLoadTimeRef = useRef(0);
+  const cachedPlanIdRef = useRef<string | null>(null);
 
   const loadWorkoutPlan = useCallback(async (showLoadingState = true, forceRefresh = false) => {
+    // OPTIMIZATION: Skip query if we already have this plan cached
+    if (!forceRefresh && workoutPlan && cachedPlanIdRef.current === workoutPlan.id) {
+      console.log('[WorkoutPlanContext] Plan already cached, skipping query');
+      return;
+    }
+
     // OPTIMIZATION: Prevent loads within 500ms of last load (reduced from 5s for better UX)
     // But allow force refresh to bypass this
     const now = Date.now();
@@ -126,13 +134,16 @@ export const WorkoutPlanProvider = ({ children }: { children: ReactNode }) => {
         }));
 
       // Set workout plan immediately WITHOUT waiting for images
-      setWorkoutPlan({
+      const planData = {
         id: plan.id,
         name: plan.name,
         description: plan.description,
         days: daysWithExercises,
         conversationId: plan.conversations?.[0]?.id
-      });
+      };
+      
+      setWorkoutPlan(planData);
+      cachedPlanIdRef.current = plan.id; // Cache plan ID
       setIsLoading(false); // Show plan immediately
       setHasFetchedOnce(true);
       loadingRef.current = false;
@@ -149,14 +160,24 @@ export const WorkoutPlanProvider = ({ children }: { children: ReactNode }) => {
     }
   }, []); // Add empty dependency array for useCallback
 
-  const refreshWorkoutPlan = async (force = false) => {
+  const refreshWorkoutPlan = useCallback(async (force = false) => {
     await loadWorkoutPlan(true, force);
-  };
+  }, [loadWorkoutPlan]);
 
-  const clearCache = () => {
+  const setWorkoutPlanDirectly = useCallback((plan: WorkoutPlan) => {
+    console.log('[WorkoutPlanContext] Setting plan directly (cached)');
+    setWorkoutPlan(plan);
+    cachedPlanIdRef.current = plan.id; // Cache plan ID
+    setIsLoading(false);
+    setHasFetchedOnce(true);
+    loadingRef.current = false;
+  }, []);
+
+  const clearCache = useCallback(() => {
     setWorkoutPlan(null);
+    cachedPlanIdRef.current = null;
     setHasFetchedOnce(false);
-  };
+  }, []);
   // Load ONLY on mount, NEVER reload automatically
   useEffect(() => {
     loadWorkoutPlan(true);
@@ -171,6 +192,7 @@ export const WorkoutPlanProvider = ({ children }: { children: ReactNode }) => {
           workoutPlan,
           isLoading: isLoading && !hasFetchedOnce,
           refreshWorkoutPlan,
+          setWorkoutPlanDirectly,
           clearCache,
         }}
       >
