@@ -114,9 +114,8 @@ const Chat = () => {
       .eq('conversation_id', convId)
       .order('created_at', { ascending: true });
 
-    if (existingMessages) {
-      setMessages(existingMessages as Message[]);
-    }
+    // Completely replace messages array - don't merge
+    setMessages((existingMessages as Message[]) || []);
 
     setConversationId(convId);
     setIsLoading(false);
@@ -124,13 +123,48 @@ const Chat = () => {
 
   const handleConversationChange = async (newConvId: string | null) => {
     if (newConvId === null) {
-      // Start new conversation
+      // Start completely new conversation - clear everything
       setConversationId(null);
       setWorkoutPlanId(null);
-      setMessages([]);
+      setMessages([]); // Clear all messages
       setIsLoading(false);
+      
+      // Create a new conversation immediately
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const { data: newConv } = await supabase
+        .from('conversations')
+        .insert({ user_id: session.user.id })
+        .select()
+        .single();
+
+      if (newConv) {
+        setConversationId(newConv.id);
+        
+        // Send welcome message
+        const welcomeMessage = `Hi! I'm your TailorFit AI coach. ${
+          userProfile 
+            ? `I see you want to ${userProfile.fitness_goal} and you're at ${userProfile.experience_level} level.` 
+            : ''
+        } Let's chat about your fitness journey! What questions do you have, or would you like me to create your personalized workout plan?`;
+
+        const { data: welcomeMsg } = await supabase
+          .from('messages')
+          .insert({
+            conversation_id: newConv.id,
+            role: 'assistant',
+            content: welcomeMessage,
+          })
+          .select()
+          .single();
+
+        if (welcomeMsg) {
+          setMessages([welcomeMsg as Message]);
+        }
+      }
     } else {
-      // Load existing conversation
+      // Load existing conversation - completely replace current state
       await loadConversation(newConvId);
     }
   };
