@@ -191,6 +191,9 @@ const Workouts = () => {
         title: "Saved",
         description: "Exercise updated successfully.",
       });
+
+      // Refresh workout plan context so changes persist after exiting edit mode
+      await refreshWorkoutPlan(true);
       
     } catch (error) {
       console.error('[Workouts] Error saving exercise:', error);
