@@ -9,7 +9,7 @@ import EditPlanBottomSheet from "@/components/EditPlanBottomSheet";
 import ExerciseEditCard from "@/components/ExerciseEditCard";
 import ExerciseCard from "@/components/ExerciseCard";
 import WorkoutSession from "@/components/WorkoutSession";
-import { findExerciseMatches } from "@/lib/fuzzyMatcher";
+import { useWorkoutPlan } from "@/contexts/WorkoutPlanContext";
 import { Calendar, Clock, Dumbbell, Plus, ChevronDown, ChevronUp, MessageSquare, Pencil, Trash2, Play, CheckCircle2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -56,18 +56,27 @@ interface WorkoutPlan {
 const Workouts = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [isLoading, setIsLoading] = useState(true);
-  const [workoutPlan, setWorkoutPlan] = useState<WorkoutPlan | null>(null);
+  const { workoutPlan: contextWorkoutPlan, exerciseMatchCache, isLoading, refreshWorkoutPlan } = useWorkoutPlan();
+  const [localWorkoutPlan, setLocalWorkoutPlan] = useState<WorkoutPlan | null>(null);
   const [expandedDays, setExpandedDays] = useState<Set<string>>(new Set());
   const [isEditSheetOpen, setIsEditSheetOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [editingExerciseId, setEditingExerciseId] = useState<string | null>(null);
   const [originalPlan, setOriginalPlan] = useState<WorkoutPlan | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [exerciseMatchCache, setExerciseMatchCache] = useState<Map<string, { imageUrl: string | null; confidence: number }>>(new Map());
   const [activeWorkoutDayId, setActiveWorkoutDayId] = useState<string | null>(null);
   const [completedExercises, setCompletedExercises] = useState<Set<string>>(new Set());
   const [completedDays, setCompletedDays] = useState<Map<string, Date>>(new Map());
+
+  // Use local copy in edit mode, context otherwise
+  const workoutPlan = isEditMode ? localWorkoutPlan : contextWorkoutPlan;
+
+  // Sync local copy when context updates and not in edit mode
+  useEffect(() => {
+    if (!isEditMode && contextWorkoutPlan) {
+      setLocalWorkoutPlan(contextWorkoutPlan);
+    }
+  }, [contextWorkoutPlan, isEditMode]);
 
   const toggleDay = (dayId: string) => {
     setExpandedDays(prev => {
@@ -98,6 +107,7 @@ const Workouts = () => {
     setIsEditSheetOpen(false);
     setIsEditMode(true);
     setOriginalPlan(workoutPlan);
+    setLocalWorkoutPlan(workoutPlan);
     // Expand all days for easier editing
     if (workoutPlan) {
       setExpandedDays(new Set(workoutPlan.days.map(d => d.id)));
@@ -107,7 +117,8 @@ const Workouts = () => {
   const handleCancelEdit = () => {
     setIsEditMode(false);
     setEditingExerciseId(null);
-    setWorkoutPlan(originalPlan);
+    // Refresh from context to revert local changes
+    refreshWorkoutPlan();
     setOriginalPlan(null);
   };
 
@@ -136,6 +147,9 @@ const Workouts = () => {
         description: "Your workout plan has been updated successfully.",
       });
 
+      // Refresh workout plan from context
+      await refreshWorkoutPlan();
+      
       setIsEditMode(false);
       setEditingExerciseId(null);
       setOriginalPlan(null);
@@ -150,7 +164,7 @@ const Workouts = () => {
   };
 
   const handleUpdateExercise = (dayId: string, exerciseId: string, updates: Partial<Exercise>) => {
-    setWorkoutPlan(prev => {
+    setLocalWorkoutPlan(prev => {
       if (!prev) return prev;
       return {
         ...prev,
@@ -176,20 +190,8 @@ const Workouts = () => {
         .delete()
         .eq('id', exerciseId);
 
-      setWorkoutPlan(prev => {
-        if (!prev) return prev;
-        return {
-          ...prev,
-          days: prev.days.map(day =>
-            day.id === dayId
-              ? {
-                  ...day,
-                  exercises: day.exercises.filter(ex => ex.id !== exerciseId)
-                }
-              : day
-          )
-        };
-      });
+      // Refresh from context
+      await refreshWorkoutPlan();
 
       toast({
         title: "Exercise deleted",
@@ -228,7 +230,9 @@ const Workouts = () => {
         description: "Your workout plan has been deleted.",
       });
 
-      setWorkoutPlan(null);
+      // Refresh context to clear deleted plan
+      await refreshWorkoutPlan();
+      setLocalWorkoutPlan(null);
       setIsEditMode(false);
       setIsDeleteDialogOpen(false);
     } catch (error) {
@@ -279,112 +283,27 @@ const Workouts = () => {
     setActiveWorkoutDayId(null);
   };
 
+  // Load completed exercises on mount
   useEffect(() => {
-    const loadWorkoutPlan = async () => {
+    const loadCompletedExercises = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
         navigate("/auth");
         return;
       }
 
-      // Load active workout plan
-      const { data: plans } = await supabase
-        .from('workout_plans')
-        .select('*')
+      const { data: logs } = await supabase
+        .from('exercise_logs')
+        .select('workout_exercise_id')
         .eq('user_id', session.user.id)
-        .eq('is_active', true)
-        .order('created_at', { ascending: false })
-        .limit(1);
+        .gte('completed_at', new Date(new Date().setHours(0, 0, 0, 0)).toISOString());
 
-      if (plans && plans.length > 0) {
-        const plan = plans[0];
-        
-        // Find the conversation that created this plan
-        const { data: conversation } = await supabase
-          .from('conversations')
-          .select('id')
-          .eq('workout_plan_id', plan.id)
-          .eq('user_id', session.user.id)
-          .single();
-        
-        // Load workout days
-        const { data: days } = await supabase
-          .from('workout_days')
-          .select('*')
-          .eq('workout_plan_id', plan.id)
-          .order('day_order', { ascending: true });
-
-        if (days) {
-          // Load exercises for each day
-          const daysWithExercises = await Promise.all(
-            days.map(async (day) => {
-              const { data: exercises } = await supabase
-                .from('workout_exercises')
-                .select('*')
-                .eq('workout_day_id', day.id)
-                .order('exercise_order', { ascending: true });
-
-              return {
-                ...day,
-                exercises: exercises || []
-              };
-            })
-          );
-
-          setWorkoutPlan({
-            id: plan.id,
-            name: plan.name,
-            description: plan.description,
-            days: daysWithExercises,
-            conversationId: conversation?.id
-          });
-
-          // Pre-load all exercise matches in parallel for better performance
-          const allExerciseNames = daysWithExercises
-            .flatMap(day => day.exercises)
-            .map(ex => ex.exercise_name)
-            .filter((name): name is string => !!name);
-
-          if (allExerciseNames.length > 0) {
-            const matches = await findExerciseMatches(allExerciseNames);
-            const cache = new Map<string, { imageUrl: string | null; confidence: number }>();
-            
-            matches.forEach((match, name) => {
-              if (match && match.confidence >= 0.8) {
-                const imageUrls = match.exercise.image_urls;
-                const imageUrl = imageUrls && imageUrls.length > 0
-                  ? (imageUrls[0].startsWith('http') ? imageUrls[0] : `https://wger.de${imageUrls[0]}`)
-                  : null;
-                
-                cache.set(name, {
-                  imageUrl,
-                  confidence: match.confidence
-                });
-              } else {
-                cache.set(name, { imageUrl: null, confidence: 0 });
-              }
-            });
-            
-            setExerciseMatchCache(cache);
-          }
-
-          // Load completed exercises for today
-          const { data: logs } = await supabase
-            .from('exercise_logs')
-            .select('workout_exercise_id')
-            .eq('user_id', session.user.id)
-            .gte('completed_at', new Date(new Date().setHours(0, 0, 0, 0)).toISOString());
-
-          if (logs) {
-            setCompletedExercises(new Set(logs.map(log => log.workout_exercise_id)));
-          }
-        }
+      if (logs) {
+        setCompletedExercises(new Set(logs.map(log => log.workout_exercise_id)));
       }
-
-      setIsLoading(false);
     };
 
-    loadWorkoutPlan();
+    loadCompletedExercises();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (!session) {
@@ -553,20 +472,20 @@ const Workouts = () => {
                                   .select()
                                   .single();
 
-                                if (newExercise) {
-                                  setWorkoutPlan(prev => {
-                                    if (!prev) return prev;
-                                    return {
-                                      ...prev,
-                                      days: prev.days.map(d =>
-                                        d.id === day.id
-                                          ? { ...d, exercises: [...d.exercises, newExercise as Exercise] }
-                                          : d
-                                      )
-                                    };
-                                  });
-                                  setEditingExerciseId(newExercise.id);
-                                }
+                                 if (newExercise) {
+                                   setLocalWorkoutPlan(prev => {
+                                     if (!prev) return prev;
+                                     return {
+                                       ...prev,
+                                       days: prev.days.map(d =>
+                                         d.id === day.id
+                                           ? { ...d, exercises: [...d.exercises, newExercise as Exercise] }
+                                           : d
+                                       )
+                                     };
+                                   });
+                                   setEditingExerciseId(newExercise.id);
+                                 }
                               }}
                             >
                               <Plus className="w-4 h-4 mr-2" />
