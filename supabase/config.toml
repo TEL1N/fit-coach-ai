@@ -2,3 +2,6 @@ project_id = "glerucghxtlqjrqktzfd"
 
 [functions.chat-with-claude]
 verify_jwt = true
+
+[functions.generate-workout-plan]
+verify_jwt = true
