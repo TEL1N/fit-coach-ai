@@ -340,6 +340,40 @@ const Chat = () => {
     if (!message.trim() || !conversationId || isSending) return;
 
     const userMessage = message.trim();
+    
+    // FIRST: Check if user has already used their free modification BEFORE sending anything
+    // This prevents wasting tokens and provides better UX
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      console.error('[Chat] No session found');
+      return;
+    }
+    
+    // Check if this looks like a modification request
+    const modificationKeywords = ['ease', 'easier', 'harder', 'intense', 'injury', 'hurt', 'pain', 
+      'shorter', 'longer', 'less', 'more', 'reduce', 'increase', 'change', 'modify', 'adjust',
+      'cardio', 'strength', 'rest', 'recovery', 'beginner', 'advanced', 'swap', 'replace', 
+      'different', 'alternative', 'skip', 'remove', 'add'];
+    const isModificationRequest = hasExistingPlan && 
+      modificationKeywords.some(keyword => userMessage.toLowerCase().includes(keyword));
+    
+    // Check modification status BEFORE sending message
+    if (isModificationRequest) {
+      const { data: profileCheck } = await supabase
+        .from('user_fitness_profiles')
+        .select('has_used_free_modification')
+        .eq('user_id', session.user.id)
+        .single();
+      
+      if (profileCheck?.has_used_free_modification) {
+        // User has already used their free modification - show upgrade modal immediately
+        console.log('[Chat] User has already used free modification, showing upgrade modal');
+        setIsUpgradeModalOpen(true);
+        return; // Don't send message, don't waste tokens
+      }
+    }
+    
+    // Now proceed with sending the message
     setMessage("");
     setIsSending(true);
     
@@ -370,59 +404,25 @@ const Chat = () => {
       conversationHistory.push({ role: 'user', content: userMessage });
 
       // Get AI response with higher token limit for workout plans
-      // ALWAYS fetch fresh profile from database before sending to AI
-      // This ensures the AI always has the latest onboarding data
-      const { data: { session } } = await supabase.auth.getSession();
-      let profileToUse = null;
-      
-      if (session) {
-        const { data: freshProfile, error: profileError } = await supabase
-          .from('user_fitness_profiles')
-          .select('*')
-          .eq('user_id', session.user.id)
-          .single();
-        
-        profileToUse = freshProfile;
-        
-        // Detailed logging to debug profile issues
-        console.log('[Chat] Fresh profile fetch result:', {
-          success: !!freshProfile,
-          error: profileError?.message || null,
-          fitness_goal: freshProfile?.fitness_goal || 'NOT SET',
-          experience_level: freshProfile?.experience_level || 'NOT SET',
-          available_equipment: freshProfile?.available_equipment || 'NOT SET',
-          workout_frequency: freshProfile?.workout_frequency || 'NOT SET',
-          limitations: freshProfile?.limitations || 'NOT SET'
-        });
-        
-        if (profileError) {
-          console.error('[Chat] Profile fetch error:', profileError);
-        }
-      } else {
-        console.error('[Chat] No session found - cannot fetch profile');
-      }
-      
-      // Check if this looks like a modification request
-      const modificationKeywords = ['ease', 'easier', 'harder', 'intense', 'injury', 'hurt', 'pain', 
-        'shorter', 'longer', 'less', 'more', 'reduce', 'increase', 'change', 'modify', 'adjust',
-        'cardio', 'strength', 'rest', 'recovery', 'beginner', 'advanced'];
-      const isModificationRequest = hasExistingPlan && 
-        modificationKeywords.some(keyword => userMessage.toLowerCase().includes(keyword));
-      
-      // Check if user has already used their free modification
-      const { data: currentProfile } = await supabase
+      // Fetch fresh profile from database for AI context
+      const { data: freshProfile, error: profileError } = await supabase
         .from('user_fitness_profiles')
-        .select('has_used_free_modification')
-        .eq('user_id', session?.user?.id)
+        .select('*')
+        .eq('user_id', session.user.id)
         .single();
       
-      const hasUsedModification = currentProfile?.has_used_free_modification || false;
+      const profileToUse = freshProfile;
       
-      if (isModificationRequest && hasUsedModification) {
-        // User has already used their free modification - show upgrade modal
-        setIsUpgradeModalOpen(true);
-        setIsSending(false);
-        return;
+      // Detailed logging to debug profile issues
+      console.log('[Chat] Fresh profile fetch result:', {
+        success: !!freshProfile,
+        error: profileError?.message || null,
+        fitness_goal: freshProfile?.fitness_goal || 'NOT SET',
+        has_used_free_modification: freshProfile?.has_used_free_modification || false
+      });
+      
+      if (profileError) {
+        console.error('[Chat] Profile fetch error:', profileError);
       }
       
       const systemPrompt = getFitnessCoachSystemPrompt(profileToUse, hasExistingPlan);
