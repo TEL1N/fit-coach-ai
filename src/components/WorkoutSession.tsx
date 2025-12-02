@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Check, X, Play, Timer } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import WorkoutCelebration from "@/components/WorkoutCelebration";
 
 interface Exercise {
   id: string;
@@ -19,7 +20,7 @@ interface Exercise {
 interface WorkoutSessionProps {
   dayName: string;
   exercises: Exercise[];
-  onComplete: () => void;
+  onComplete: (completedExerciseIds: string[]) => void;
   onExit: () => void;
 }
 
@@ -31,6 +32,7 @@ const WorkoutSession = ({ dayName, exercises, onComplete, onExit }: WorkoutSessi
   const [restTimeLeft, setRestTimeLeft] = useState(0);
   const [startTime] = useState(Date.now());
   const [completedExercises, setCompletedExercises] = useState<Set<string>>(new Set());
+  const [showCelebration, setShowCelebration] = useState(false);
 
   const currentExercise = exercises[currentExerciseIndex];
   const totalExercises = exercises.length;
@@ -82,9 +84,9 @@ const WorkoutSession = ({ dayName, exercises, onComplete, onExit }: WorkoutSessi
   }, []);
 
   const handleCompleteSet = async () => {
-    // Haptic feedback
+    // Enhanced haptic feedback for set completion
     if ('vibrate' in navigator) {
-      navigator.vibrate(100);
+      navigator.vibrate([50, 30, 50]);
     }
 
     if (currentSet < totalSets) {
@@ -121,21 +123,16 @@ const WorkoutSession = ({ dayName, exercises, onComplete, onExit }: WorkoutSessi
             description: "Great job! Moving to next exercise.",
           });
         } else {
-          // Workout complete
+          // Workout complete - show celebration
           const totalTimeSeconds = Math.floor((Date.now() - startTime) / 1000);
           const minutes = Math.floor(totalTimeSeconds / 60);
           
-          toast({
-            title: "Workout complete! 🎉",
-            description: `${totalExercises} exercises • ${minutes} minutes`,
-          });
-
-          // Haptic feedback for completion
+          // Strong haptic feedback for workout completion
           if ('vibrate' in navigator) {
-            navigator.vibrate([200, 100, 200]);
+            navigator.vibrate([100, 50, 100, 50, 200]);
           }
 
-          onComplete();
+          setShowCelebration(true);
         }
       } catch (error) {
         console.error('Error logging exercise:', error);
@@ -149,8 +146,17 @@ const WorkoutSession = ({ dayName, exercises, onComplete, onExit }: WorkoutSessi
   };
 
   const handleSkipRest = () => {
+    // Light haptic feedback for skip
+    if ('vibrate' in navigator) {
+      navigator.vibrate(30);
+    }
     setIsResting(false);
     setRestTimeLeft(0);
+  };
+
+  const handleCelebrationComplete = () => {
+    const completedIds = Array.from(completedExercises);
+    onComplete(completedIds);
   };
 
   const formatTime = (seconds: number) => {
@@ -161,6 +167,20 @@ const WorkoutSession = ({ dayName, exercises, onComplete, onExit }: WorkoutSessi
 
   if (!currentExercise) {
     return null;
+  }
+
+  // Show celebration screen
+  if (showCelebration) {
+    const totalTimeSeconds = Math.floor((Date.now() - startTime) / 1000);
+    const minutes = Math.floor(totalTimeSeconds / 60);
+
+    return (
+      <WorkoutCelebration
+        totalExercises={totalExercises}
+        totalMinutes={minutes}
+        onContinue={handleCelebrationComplete}
+      />
+    );
   }
 
   return (
