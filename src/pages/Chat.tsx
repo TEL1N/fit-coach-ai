@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import MobileTabBar from "@/components/MobileTabBar";
 import ConversationSelector from "@/components/ConversationSelector";
+import UpgradeModal from "@/components/UpgradeModal";
 import { Send, Zap, ExternalLink } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { sendClaudeMessage } from "@/lib/claudeService";
@@ -35,6 +36,8 @@ const Chat = () => {
   } = useChatContext();
   const [isSending, setIsSending] = useState(false);
   const [message, setMessage] = useState("");
+  const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
+  const [hasExistingPlan, setHasExistingPlan] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
 
@@ -104,15 +107,26 @@ const Chat = () => {
 
   const handleConversationChange = async (newConvId: string | null) => {
     if (newConvId === null) {
+      // Check if user already has a conversation (free tier: 1 plan, 1 chat)
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const { data: conversations } = await supabase
+        .from('conversations')
+        .select('id')
+        .eq('user_id', session.user.id);
+
+      if (conversations && conversations.length >= 1) {
+        setIsUpgradeModalOpen(true);
+        return;
+      }
+
       // Start completely new conversation - clear everything
       setConversationId(null);
       setWorkoutPlanId(null);
       setMessages([]); // Clear all messages
       
       // Create a new conversation immediately
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
-
       const { data: newConv } = await supabase
         .from('conversations')
         .insert({ user_id: session.user.id })
@@ -123,11 +137,7 @@ const Chat = () => {
         setConversationId(newConv.id);
         
         // Send welcome message
-        const welcomeMessage = `Hi! I'm your TailorFit AI coach. ${
-          userProfile 
-            ? `I see you want to ${userProfile.fitness_goal} and you're at ${userProfile.experience_level} level.` 
-            : ''
-        } Let's chat about your fitness journey! What questions do you have, or would you like me to create your personalized workout plan?`;
+        const welcomeMessage = `I'm your workout plan builder. Ready to create your personalized plan? Just say 'create my plan' or ask me any fitness questions first.`;
 
         const { data: welcomeMsg } = await supabase
           .from('messages')
@@ -158,6 +168,22 @@ const Chat = () => {
       window.history.replaceState({}, document.title);
       return;
     }
+
+    // Check for existing workout plans (free tier check)
+    const checkExistingPlans = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const { data: plans } = await supabase
+        .from('workout_plans')
+        .select('id')
+        .eq('user_id', session.user.id)
+        .eq('is_active', true);
+
+      setHasExistingPlan(plans && plans.length > 0);
+    };
+
+    checkExistingPlans();
 
     // Check auth
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
@@ -383,6 +409,25 @@ const Chat = () => {
   const handleGenerateWorkoutPlan = async () => {
     if (!conversationId || isSending) return;
 
+    // Check if user already has an active workout plan (free tier limitation)
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const { data: existingPlans } = await supabase
+        .from('workout_plans')
+        .select('id')
+        .eq('user_id', session.user.id)
+        .eq('is_active', true);
+
+      if (existingPlans && existingPlans.length > 0) {
+        setIsUpgradeModalOpen(true);
+        return;
+      }
+    } catch (error) {
+      console.error('Error checking existing plans:', error);
+    }
+
     setIsSending(true);
 
     try {
@@ -417,6 +462,7 @@ const Chat = () => {
         }
 
         setWorkoutPlanId(data.workoutPlanId);
+        setHasExistingPlan(true);
         
         // Play receive sound
         playReceiveSound();
@@ -583,6 +629,16 @@ const Chat = () => {
           </div>
         </div>
       </div>
+
+      <UpgradeModal
+        isOpen={isUpgradeModalOpen}
+        onClose={() => setIsUpgradeModalOpen(false)}
+        title="Upgrade to Pro"
+        description={hasExistingPlan 
+          ? "You already have an active workout plan. Delete it first or upgrade to Pro for unlimited workout plans and chat history."
+          : "Free users can only have 1 workout plan and 1 chat. Upgrade to Pro for unlimited plans and conversations."
+        }
+      />
 
       <MobileTabBar />
     </div>
