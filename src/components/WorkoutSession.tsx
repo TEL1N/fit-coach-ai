@@ -192,7 +192,10 @@ const WorkoutSession = ({ dayName, exercises, onComplete, onExit }: WorkoutSessi
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 overflow-y-auto px-6 py-8 flex flex-col items-center justify-center">
+      <div 
+        className="flex-1 overflow-y-auto px-6 py-8 flex flex-col items-center justify-center"
+        style={{ paddingBottom: 'max(2rem, env(safe-area-inset-bottom))' }}
+      >
         {isResting ? (
           /* Rest Screen */
           <div className="text-center space-y-6 max-w-sm w-full">
