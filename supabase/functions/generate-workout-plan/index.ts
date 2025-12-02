@@ -13,11 +13,11 @@ const corsHeaders = {
 // ============================================================================
 
 const GOAL_MAP: Record<string, string> = {
-  build_muscle: "Build Muscle (hypertrophy-focused, 8-12 rep ranges)",
-  lose_weight: "Lose Weight (fat loss with muscle retention, higher reps, shorter rest)",
-  general_fitness: "General Fitness (balanced health and conditioning)",
-  increase_strength: "Increase Strength (low reps 3-6, heavy compounds, longer rest)",
-  improve_endurance: "Improve Endurance (high reps 15-20, minimal rest, circuits)",
+  build_muscle: "BUILD MUSCLE → Hypertrophy focus: 8-12 reps, 60-90s rest, controlled tempo, isolate each muscle group",
+  lose_weight: "LOSE WEIGHT → Fat burning focus: 12-15 reps, 30-45s rest, compound movements, keep heart rate elevated",
+  general_fitness: "GENERAL FITNESS → Balanced approach: mix of strength and cardio, 8-12 reps, moderate rest",
+  increase_strength: "INCREASE STRENGTH → Strength focus: 3-6 reps, 2-3 min rest, heavy compound lifts (squat, deadlift, bench, press)",
+  improve_endurance: "IMPROVE ENDURANCE → Cardio/HIIT focus: Use circuit training, minimal rest (15-30s), include cardio exercises like burpees, jumping jacks, high knees, mountain climbers, jump squats, box jumps. Can use time-based format (e.g. '30 seconds' instead of reps). High rep ranges (15-20+) for any strength exercises.",
 };
 
 const EXPERIENCE_MAP: Record<string, string> = {
@@ -178,7 +178,17 @@ Full Gym (can use any):
 - All of the above plus machines and cables
 - lat pulldown, seated cable row
 - leg press, leg curl, leg extension
-- cable fly, cable crossover`;
+- cable fly, cable crossover
+
+CARDIO & ENDURANCE EXERCISES (use for "Improve Endurance" goal):
+- burpees, jumping jacks, high knees, butt kicks
+- mountain climbers, jump squats, box jumps
+- skater jumps, tuck jumps, star jumps
+- running in place, sprint intervals
+- jump rope, speed step ups
+- battle ropes, rowing machine, assault bike
+- bear crawl, crab walk, inch worm
+FORMAT FOR ENDURANCE: Use circuits (3-4 exercises back-to-back), time-based (e.g. "30 seconds"), or high reps (20+) with minimal rest (15-30s between exercises)`;
 
   if (userProfile) {
     return basePrompt + formatUserProfile(userProfile);
