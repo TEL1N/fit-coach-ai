@@ -667,7 +667,7 @@ const Chat = () => {
   };
 
   const handleGenerateWorkoutPlan = async () => {
-    if (!conversationId || isSending) return;
+    if (!conversationId || isSending || isGeneratingPlan) return;
 
     // Check if user already has an active workout plan
     try {
@@ -700,7 +700,7 @@ const Chat = () => {
 
     const startTime = performance.now();
     console.log('[Chat] Starting workout plan generation...');
-    setIsSending(true);
+    setIsGeneratingPlan(true); // Use separate state for plan generation
 
     try {
       // Get current user
@@ -814,7 +814,7 @@ const Chat = () => {
         variant: "destructive",
       });
     } finally {
-      setIsSending(false);
+      setIsGeneratingPlan(false);
     }
   };
 
@@ -958,10 +958,10 @@ const Chat = () => {
         <div className="max-w-2xl mx-auto">
           <Button
             onClick={hasExistingPlan ? () => navigate("/workouts", { state: { refreshPlan: true } }) : handleGenerateWorkoutPlan}
-            disabled={isSending}
-            className="w-full mb-4 h-12 rounded-full gradient-energy shadow-glow-md font-bold transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] hover:shadow-glow-lg"
+            disabled={isSending || isGeneratingPlan}
+            className={`w-full mb-4 h-12 rounded-full gradient-energy shadow-glow-md font-bold transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] hover:shadow-glow-lg ${isSending && !isGeneratingPlan ? 'opacity-50' : ''}`}
           >
-            {isSending ? (
+            {isGeneratingPlan ? (
               <>
                 <div className="flex items-center gap-2">
                   <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
