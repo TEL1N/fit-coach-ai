@@ -68,6 +68,7 @@ const Workouts = () => {
   const [activeWorkoutDayId, setActiveWorkoutDayId] = useState<string | null>(null);
   const [completedExercises, setCompletedExercises] = useState<Set<string>>(new Set());
   const [completedDays, setCompletedDays] = useState<Map<string, Date>>(new Map());
+  const [expandedExercises, setExpandedExercises] = useState<Set<string>>(new Set());
 
   const toggleDay = (dayId: string) => {
     setExpandedDays(prev => {
@@ -252,6 +253,18 @@ const Workouts = () => {
         if ('vibrate' in navigator) {
           navigator.vibrate(50);
         }
+      }
+      return newSet;
+    });
+  };
+
+  const handleToggleExerciseExpand = (exerciseId: string) => {
+    setExpandedExercises(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(exerciseId)) {
+        newSet.delete(exerciseId);
+      } else {
+        newSet.add(exerciseId);
       }
       return newSet;
     });
@@ -517,7 +530,7 @@ const Workouts = () => {
                                   onCheckedChange={() => handleToggleExerciseComplete(exercise.id)}
                                   className="mt-1 h-5 w-5"
                                 />
-                                <div className="flex-1">
+                                <div className="flex-1 min-w-0">
                                   <ExerciseCard
                                     exerciseName={exercise.exercise_name || `Exercise ${exercise.exercise_order}`}
                                     sets={exercise.sets}
@@ -525,6 +538,8 @@ const Workouts = () => {
                                     restSeconds={exercise.rest_seconds}
                                     notes={exercise.notes}
                                     cachedMatch={exercise.exercise_name ? exerciseMatchCache.get(exercise.exercise_name) : undefined}
+                                    isExpanded={expandedExercises.has(exercise.id)}
+                                    onToggleExpand={() => handleToggleExerciseExpand(exercise.id)}
                                   />
                                 </div>
                               </div>
