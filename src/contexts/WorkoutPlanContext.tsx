@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, ReactNode, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { findExerciseMatches } from "@/lib/fuzzyMatcher";
 
@@ -50,8 +50,28 @@ export const WorkoutPlanProvider = ({ children }: { children: ReactNode }) => {
   const [exerciseMatchCache, setExerciseMatchCache] = useState<Map<string, { imageUrl: string | null; confidence: number }>>(new Map());
   const [isLoading, setIsLoading] = useState(true);
   const [hasFetchedOnce, setHasFetchedOnce] = useState(false);
+  
+  // OPTIMIZATION: Prevent duplicate loads
+  const loadingRef = useRef(false);
+  const lastLoadTimeRef = useRef(0);
 
-  const loadWorkoutPlan = async (showLoadingState = true) => {
+  const loadWorkoutPlan = useCallback(async (showLoadingState = true) => {
+    // OPTIMIZATION: Prevent loads within 5 seconds of last load
+    const now = Date.now();
+    if (now - lastLoadTimeRef.current < 5000) {
+      console.log('[WorkoutPlanContext] Skipping load - too soon after last load');
+      return;
+    }
+
+    // OPTIMIZATION: Prevent duplicate concurrent loads
+    if (loadingRef.current) {
+      console.log('[WorkoutPlanContext] Load already in progress, skipping...');
+      return;
+    }
+
+    loadingRef.current = true;
+    lastLoadTimeRef.current = now;
+    
     const overallStartTime = performance.now();
     console.log('[WorkoutPlanContext] Starting workout plan load...');
     
@@ -64,6 +84,7 @@ export const WorkoutPlanProvider = ({ children }: { children: ReactNode }) => {
       if (!session) {
         setWorkoutPlan(null);
         setIsLoading(false);
+        loadingRef.current = false;
         return;
       }
 
@@ -90,6 +111,7 @@ export const WorkoutPlanProvider = ({ children }: { children: ReactNode }) => {
         console.log('[WorkoutPlanContext] No active plan found');
         setWorkoutPlan(null);
         setIsLoading(false);
+        loadingRef.current = false;
         return;
       }
 
@@ -98,11 +120,11 @@ export const WorkoutPlanProvider = ({ children }: { children: ReactNode }) => {
 
       // Transform nested data structure
       const daysWithExercises = (plan.workout_days || [])
-        .sort((a, b) => a.day_order - b.day_order)
-        .map(day => ({
+        .sort((a: any, b: any) => a.day_order - b.day_order)
+        .map((day: any) => ({
           ...day,
           exercises: (day.workout_exercises || [])
-            .sort((a, b) => a.exercise_order - b.exercise_order)
+            .sort((a: any, b: any) => a.exercise_order - b.exercise_order)
         }));
 
       // Set workout plan immediately so UI can start rendering
@@ -118,9 +140,9 @@ export const WorkoutPlanProvider = ({ children }: { children: ReactNode }) => {
       // Pre-load all exercise matches in parallel
       const matchStartTime = performance.now();
       const allExerciseNames = daysWithExercises
-        .flatMap(day => day.exercises)
-        .map(ex => ex.exercise_name)
-        .filter((name): name is string => !!name);
+        .flatMap((day: any) => day.exercises)
+        .map((ex: any) => ex.exercise_name)
+        .filter((name: any): name is string => !!name);
 
       if (allExerciseNames.length > 0) {
         const matches = await findExerciseMatches(allExerciseNames);
@@ -153,8 +175,9 @@ export const WorkoutPlanProvider = ({ children }: { children: ReactNode }) => {
     } finally {
       setIsLoading(false);
       setHasFetchedOnce(true);
+      loadingRef.current = false;
     }
-  };
+  }, []); // Add empty dependency array for useCallback
 
   const refreshWorkoutPlan = async () => {
     await loadWorkoutPlan(true);
@@ -165,32 +188,31 @@ export const WorkoutPlanProvider = ({ children }: { children: ReactNode }) => {
     setExerciseMatchCache(new Map());
     setHasFetchedOnce(false);
   };
-
   // Load on mount
-  useEffect(() => {
-    loadWorkoutPlan(true);
+    useEffect(() => {
+      loadWorkoutPlan(true);
 
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
-      loadWorkoutPlan(false);
-    });
+      // Listen for auth changes
+      const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
+        loadWorkoutPlan(false);
+      });
 
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, []);
+      return () => {
+        subscription.unsubscribe();
+      };
+    }, [loadWorkoutPlan]);
 
-  return (
-    <WorkoutPlanContext.Provider
-      value={{
-        workoutPlan,
-        exerciseMatchCache,
-        isLoading: isLoading && !hasFetchedOnce,
-        refreshWorkoutPlan,
-        clearCache,
-      }}
-    >
-      {children}
-    </WorkoutPlanContext.Provider>
-  );
-};
+    return (
+      <WorkoutPlanContext.Provider
+        value={{
+          workoutPlan,
+          exerciseMatchCache,
+          isLoading: isLoading && !hasFetchedOnce,
+          refreshWorkoutPlan,
+          clearCache,
+        }}
+      >
+        {children}
+      </WorkoutPlanContext.Provider>
+    );
+  };
