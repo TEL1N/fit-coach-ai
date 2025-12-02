@@ -34,6 +34,7 @@ const Chat = () => {
     setConversationId,
     setWorkoutPlanId,
     loadConversation,
+    refreshUserProfile,
   } = useChatContext();
   const { workoutPlan, setWorkoutPlanDirectly } = useWorkoutPlan();
   const [isSending, setIsSending] = useState(false);
@@ -208,6 +209,11 @@ const Chat = () => {
       return;
     }
 
+    // CRITICAL: Always refresh user profile when Chat page mounts
+    // This ensures the AI has access to onboarding data even if the context
+    // was initialized before the profile was saved
+    refreshUserProfile();
+
     // Check for existing workout plans (free tier check)
     const checkExistingPlans = async () => {
       const { data: { session } } = await supabase.auth.getSession();
@@ -232,7 +238,7 @@ const Chat = () => {
     });
 
     return () => subscription.unsubscribe();
-  }, [navigate, location]);
+  }, [navigate, location, refreshUserProfile]);
 
   const handleSendMessage = async () => {
     if (!message.trim() || !conversationId || isSending) return;
@@ -268,7 +274,29 @@ const Chat = () => {
       conversationHistory.push({ role: 'user', content: userMessage });
 
       // Get AI response with higher token limit for workout plans
-      const systemPrompt = getFitnessCoachSystemPrompt(userProfile);
+      // DEBUG: Log profile to verify it's being passed
+      console.log('[Chat] userProfile being sent to AI:', userProfile);
+      console.log('[Chat] Profile fitness_goal:', userProfile?.fitness_goal);
+      
+      // If userProfile is null, try to fetch it directly
+      let profileToUse = userProfile;
+      if (!profileToUse) {
+        console.log('[Chat] Profile not in context, fetching directly...');
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          const { data: freshProfile } = await supabase
+            .from('user_fitness_profiles')
+            .select('*')
+            .eq('user_id', session.user.id)
+            .single();
+          profileToUse = freshProfile;
+          console.log('[Chat] Fetched fresh profile:', freshProfile);
+        }
+      }
+      
+      const systemPrompt = getFitnessCoachSystemPrompt(profileToUse);
+      console.log('[Chat] System prompt includes profile:', systemPrompt.includes('USER\'S FITNESS PROFILE'));
+      
       const isWorkoutPlanRequest = userMessage.toLowerCase().includes('workout plan') || 
                                    userMessage.toLowerCase().includes('create my') ||
                                    userMessage.toLowerCase().includes('personalized') ||

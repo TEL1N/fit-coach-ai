@@ -20,6 +20,8 @@ serve(async (req) => {
 
     const { messages, systemPrompt, maxTokens = 2048 } = await req.json();
     console.log('Received request with', messages.length, 'messages');
+    console.log('System prompt includes profile:', systemPrompt?.includes('USER\'S FITNESS PROFILE') || false);
+    console.log('System prompt length:', systemPrompt?.length || 0);
 
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',

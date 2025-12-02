@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
 interface Message {
@@ -25,6 +25,7 @@ interface ChatContextType {
   setWorkoutPlanId: (id: string | null) => void;
   loadConversation: (convId: string) => Promise<void>;
   refreshConversations: () => Promise<void>;
+  refreshUserProfile: () => Promise<void>;
 }
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
@@ -76,6 +77,21 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  // Refresh user profile - useful when navigating back to chat after profile changes
+  const refreshUserProfile = useCallback(async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
+    
+    const { data: profile } = await supabase
+      .from('user_fitness_profiles')
+      .select('*')
+      .eq('user_id', session.user.id)
+      .single();
+    
+    console.log('[ChatContext] Refreshed user profile:', profile);
+    setUserProfile(profile);
+  }, []);
+
   // Load user profile and initial conversation on mount
   useEffect(() => {
     const initializeChat = async () => {
@@ -85,12 +101,21 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
         return;
       }
 
-      // Load user profile
-      const { data: profile } = await supabase
+      // Load user profile FIRST - this is critical for AI to know user's onboarding info
+      const { data: profile, error: profileError } = await supabase
         .from('user_fitness_profiles')
         .select('*')
         .eq('user_id', session.user.id)
         .single();
+      
+      console.log('[ChatContext] Loaded user profile:', profile);
+      console.log('[ChatContext] Profile error:', profileError);
+      
+      if (profile) {
+        console.log('[ChatContext] Profile details - Goal:', profile.fitness_goal, 
+          'Experience:', profile.experience_level, 
+          'Equipment:', profile.available_equipment);
+      }
       
       setUserProfile(profile);
 
@@ -222,6 +247,7 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
         setWorkoutPlanId,
         loadConversation,
         refreshConversations,
+        refreshUserProfile,
       }}
     >
       {children}
