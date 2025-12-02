@@ -67,11 +67,20 @@ export const WorkoutPlanProvider = ({ children }: { children: ReactNode }) => {
         return;
       }
 
-      // Load active workout plan
+      // Load active workout plan with nested data (1 query instead of 3+)
       const dbStartTime = performance.now();
       const { data: plans } = await supabase
         .from('workout_plans')
-        .select('*')
+        .select(`
+          *,
+          conversations(id),
+          workout_days(
+            *,
+            workout_exercises(
+              *
+            )
+          )
+        `)
         .eq('user_id', session.user.id)
         .eq('is_active', true)
         .order('created_at', { ascending: false })
@@ -85,81 +94,56 @@ export const WorkoutPlanProvider = ({ children }: { children: ReactNode }) => {
       }
 
       const plan = plans[0];
-      console.log(`[WorkoutPlanContext] Plan fetched in ${(performance.now() - dbStartTime).toFixed(0)}ms`);
+      console.log(`[WorkoutPlanContext] Plan + nested data fetched in ${(performance.now() - dbStartTime).toFixed(0)}ms`);
 
-      // Load conversation if linked
-      const { data: conversation } = await supabase
-        .from('conversations')
-        .select('id')
-        .eq('workout_plan_id', plan.id)
-        .maybeSingle();
+      // Transform nested data structure
+      const daysWithExercises = (plan.workout_days || [])
+        .sort((a, b) => a.day_order - b.day_order)
+        .map(day => ({
+          ...day,
+          exercises: (day.workout_exercises || [])
+            .sort((a, b) => a.exercise_order - b.exercise_order)
+        }));
 
-      // Load days
-      const { data: days } = await supabase
-        .from('workout_days')
-        .select('*')
-        .eq('workout_plan_id', plan.id)
-        .order('day_order', { ascending: true });
+      // Set workout plan immediately so UI can start rendering
+      setWorkoutPlan({
+        id: plan.id,
+        name: plan.name,
+        description: plan.description,
+        days: daysWithExercises,
+        conversationId: plan.conversations?.[0]?.id
+      });
+      console.log(`[WorkoutPlanContext] Plan state set in ${(performance.now() - overallStartTime).toFixed(0)}ms`);
 
-      if (days) {
-        // Load exercises for each day
-        const exercisesStartTime = performance.now();
-        const daysWithExercises = await Promise.all(
-          days.map(async (day) => {
-            const { data: exercises } = await supabase
-              .from('workout_exercises')
-              .select('*')
-              .eq('workout_day_id', day.id)
-              .order('exercise_order', { ascending: true });
+      // Pre-load all exercise matches in parallel
+      const matchStartTime = performance.now();
+      const allExerciseNames = daysWithExercises
+        .flatMap(day => day.exercises)
+        .map(ex => ex.exercise_name)
+        .filter((name): name is string => !!name);
 
-            return {
-              ...day,
-              exercises: exercises || []
-            };
-          })
-        );
-        console.log(`[WorkoutPlanContext] Exercises fetched in ${(performance.now() - exercisesStartTime).toFixed(0)}ms`);
-
-        // Set workout plan immediately so UI can start rendering
-        setWorkoutPlan({
-          id: plan.id,
-          name: plan.name,
-          description: plan.description,
-          days: daysWithExercises,
-          conversationId: conversation?.id
+      if (allExerciseNames.length > 0) {
+        const matches = await findExerciseMatches(allExerciseNames);
+        const cache = new Map<string, { imageUrl: string | null; confidence: number }>();
+        
+        matches.forEach((match, name) => {
+          if (match && match.confidence >= 0.8) {
+            const imageUrls = match.exercise.image_urls;
+            const imageUrl = imageUrls && imageUrls.length > 0
+              ? (imageUrls[0].startsWith('http') ? imageUrls[0] : `https://wger.de${imageUrls[0]}`)
+              : null;
+            
+            cache.set(name, {
+              imageUrl,
+              confidence: match.confidence
+            });
+          } else {
+            cache.set(name, { imageUrl: null, confidence: 0 });
+          }
         });
-        console.log(`[WorkoutPlanContext] Plan state set in ${(performance.now() - overallStartTime).toFixed(0)}ms`);
-
-        // Pre-load all exercise matches in parallel
-        const matchStartTime = performance.now();
-        const allExerciseNames = daysWithExercises
-          .flatMap(day => day.exercises)
-          .map(ex => ex.exercise_name)
-          .filter((name): name is string => !!name);
-
-        if (allExerciseNames.length > 0) {
-          const matches = await findExerciseMatches(allExerciseNames);
-          const cache = new Map<string, { imageUrl: string | null; confidence: number }>();
-          
-          matches.forEach((match, name) => {
-            if (match && match.confidence >= 0.8) {
-              const imageUrls = match.exercise.image_urls;
-              const imageUrl = imageUrls && imageUrls.length > 0
-                ? (imageUrls[0].startsWith('http') ? imageUrls[0] : `https://wger.de${imageUrls[0]}`)
-                : null;
-              
-              cache.set(name, {
-                imageUrl,
-                confidence: match.confidence
-              });
-            } else {
-              cache.set(name, { imageUrl: null, confidence: 0 });
-            }
-          });
-          
-          setExerciseMatchCache(cache);
-          console.log(`[WorkoutPlanContext] Exercise matching complete in ${(performance.now() - matchStartTime).toFixed(0)}ms`);
-        }
+        
+        setExerciseMatchCache(cache);
+        console.log(`[WorkoutPlanContext] Exercise matching complete in ${(performance.now() - matchStartTime).toFixed(0)}ms`);
       }
       
       const totalTime = performance.now() - overallStartTime;
