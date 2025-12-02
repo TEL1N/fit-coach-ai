@@ -56,12 +56,15 @@ function buildPromptForGoal(profile: UserProfile): string {
 USER: ${experience}, Equipment: ${equipment}, Limitations: ${limitations}
 
 THIS IS AN ENDURANCE/CARDIO PLAN. REQUIREMENTS:
-- Use these exercises: burpees, jumping jacks, high knees, mountain climbers, jump squats, skater jumps, tuck jumps, bear crawls
+- Use ANY cardio/HIIT exercises appropriate for the user's equipment and limitations
+- Examples: burpees, jumping jacks, high knees, mountain climbers, jump squats, skater jumps, tuck jumps, bear crawls, running, cycling, rowing, battle ropes, etc.
+- You can create custom exercises that fit the user's goals and equipment
 - Reps MUST be time-based: "30 seconds" or "45 seconds" (NOT "10 reps")
 - Rest MUST be short: 15-30 seconds (NOT 60 seconds)
 - Day names should include "HIIT" or "Cardio"
+- Focus on exercises that elevate heart rate and improve cardiovascular endurance
 
-DO NOT USE: planks, glute bridges, regular push ups, regular squats. These are strength exercises, not cardio.
+IMPORTANT: You are NOT restricted to any specific exercise database. Use any exercises that are appropriate for the user's goals, equipment, and limitations.
 
 Return ONLY this JSON structure:
 {
@@ -85,9 +88,14 @@ Return ONLY this JSON structure:
 USER: ${experience}, Equipment: ${equipment}, Limitations: ${limitations}
 
 THIS IS A STRENGTH PLAN. REQUIREMENTS:
-- Exercises: squats, deadlifts, bench press, overhead press, rows (use equipment available)
+- Use ANY strength exercises appropriate for the user's equipment and limitations
+- Examples: squats, deadlifts, bench press, overhead press, rows, pull-ups, dips, leg press, etc.
+- You can create custom exercises that fit the user's goals and equipment
 - Reps: 3-6 reps (low reps, heavy weight)
 - Rest: 120-180 seconds (long rest for strength)
+- Focus on compound movements that build maximal strength
+
+IMPORTANT: You are NOT restricted to any specific exercise database. Use any exercises that are appropriate for the user's goals, equipment, and limitations.
 
 Return ONLY this JSON structure:
 {
@@ -111,9 +119,15 @@ Return ONLY this JSON structure:
 USER: ${experience}, Equipment: ${equipment}, Limitations: ${limitations}
 
 THIS IS A MUSCLE BUILDING PLAN. REQUIREMENTS:
+- Use ANY exercises appropriate for the user's equipment and limitations
+- Include both compound and isolation exercises for each muscle group
+- Examples: bench press, bicep curls, tricep extensions, lateral raises, leg curls, calf raises, etc.
+- You can create custom exercises that fit the user's goals and equipment
 - Reps: 8-12 reps per set
 - Rest: 60-90 seconds
-- Include isolation exercises for each muscle group
+- Focus on exercises that target specific muscle groups for hypertrophy
+
+IMPORTANT: You are NOT restricted to any specific exercise database. Use any exercises that are appropriate for the user's goals, equipment, and limitations.
 
 Return ONLY this JSON structure:
 {
@@ -137,10 +151,15 @@ Return ONLY this JSON structure:
 USER: ${experience}, Equipment: ${equipment}, Limitations: ${limitations}
 
 THIS IS A FAT LOSS PLAN. REQUIREMENTS:
+- Use ANY exercises appropriate for the user's equipment and limitations
+- Mix compound movements with cardio exercises
+- Examples: squats, lunges, burpees, jumping jacks, mountain climbers, kettlebell swings, battle ropes, etc.
+- You can create custom exercises that fit the user's goals and equipment
 - Reps: 12-15 reps
 - Rest: 30-45 seconds (short rest keeps heart rate up)
-- Use compound movements
-- Mix in cardio exercises like jumping jacks, mountain climbers
+- Focus on exercises that burn maximum calories
+
+IMPORTANT: You are NOT restricted to any specific exercise database. Use any exercises that are appropriate for the user's goals, equipment, and limitations.
 
 Return ONLY this JSON structure:
 {
@@ -164,9 +183,15 @@ Return ONLY this JSON structure:
 USER: ${experience}, Equipment: ${equipment}, Limitations: ${limitations}
 
 GENERAL FITNESS PLAN:
-- Mix of strength and cardio
+- Use ANY exercises appropriate for the user's equipment and limitations
+- Mix of strength and cardio exercises
+- Examples: squats, push-ups, planks, lunges, jumping jacks, running, cycling, etc.
+- You can create custom exercises that fit the user's goals and equipment
 - Reps: 8-12 for strength exercises
 - Rest: 45-60 seconds
+- Focus on balanced, well-rounded fitness
+
+IMPORTANT: You are NOT restricted to any specific exercise database. Use any exercises that are appropriate for the user's goals, equipment, and limitations.
 
 Return ONLY this JSON structure:
 {
