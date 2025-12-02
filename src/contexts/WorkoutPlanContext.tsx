@@ -127,7 +127,7 @@ export const WorkoutPlanProvider = ({ children }: { children: ReactNode }) => {
             .sort((a: any, b: any) => a.exercise_order - b.exercise_order)
         }));
 
-      // Set workout plan immediately so UI can start rendering
+      // Set workout plan immediately WITHOUT waiting for images
       setWorkoutPlan({
         id: plan.id,
         name: plan.name,
@@ -135,44 +135,45 @@ export const WorkoutPlanProvider = ({ children }: { children: ReactNode }) => {
         days: daysWithExercises,
         conversationId: plan.conversations?.[0]?.id
       });
-      console.log(`[WorkoutPlanContext] Plan state set in ${(performance.now() - overallStartTime).toFixed(0)}ms`);
+      setIsLoading(false); // Show plan immediately
+      setHasFetchedOnce(true);
+      loadingRef.current = false;
 
-      // Pre-load all exercise matches in parallel
-      const matchStartTime = performance.now();
+      console.log(`[WorkoutPlanContext] Plan visible in ${(performance.now() - overallStartTime).toFixed(0)}ms`);
+
+      // THEN load images in background (don't block UI)
       const allExerciseNames = daysWithExercises
         .flatMap((day: any) => day.exercises)
         .map((ex: any) => ex.exercise_name)
         .filter((name: any): name is string => !!name);
 
       if (allExerciseNames.length > 0) {
-        const matches = await findExerciseMatches(allExerciseNames);
-        const cache = new Map<string, { imageUrl: string | null; confidence: number }>();
-        
-        matches.forEach((match, name) => {
-          if (match && match.confidence >= 0.8) {
-            const imageUrls = match.exercise.image_urls;
-            const imageUrl = imageUrls && imageUrls.length > 0
-              ? (imageUrls[0].startsWith('http') ? imageUrls[0] : `https://wger.de${imageUrls[0]}`)
-              : null;
-            
-            cache.set(name, {
-              imageUrl,
-              confidence: match.confidence
-            });
-          } else {
-            cache.set(name, { imageUrl: null, confidence: 0 });
-          }
+        // This runs in background while user sees the plan
+        findExerciseMatches(allExerciseNames).then(matches => {
+          const cache = new Map<string, { imageUrl: string | null; confidence: number }>();
+          
+          matches.forEach((match, name) => {
+            if (match && match.confidence >= 0.8) {
+              const imageUrls = match.exercise.image_urls;
+              const imageUrl = imageUrls && imageUrls.length > 0
+                ? (imageUrls[0].startsWith('http') ? imageUrls[0] : `https://wger.de${imageUrls[0]}`)
+                : null;
+              
+              cache.set(name, {
+                imageUrl,
+                confidence: match.confidence
+              });
+            } else {
+              cache.set(name, { imageUrl: null, confidence: 0 });
+            }
+          });
+          
+          setExerciseMatchCache(cache);
+          console.log(`[WorkoutPlanContext] Images loaded in background`);
         });
-        
-        setExerciseMatchCache(cache);
-        console.log(`[WorkoutPlanContext] Exercise matching complete in ${(performance.now() - matchStartTime).toFixed(0)}ms`);
       }
-      
-      const totalTime = performance.now() - overallStartTime;
-      console.log(`[WorkoutPlanContext] ✅ Total load time: ${totalTime.toFixed(0)}ms`);
     } catch (error) {
       console.error('Error loading workout plan:', error);
-    } finally {
       setIsLoading(false);
       setHasFetchedOnce(true);
       loadingRef.current = false;
@@ -188,19 +189,13 @@ export const WorkoutPlanProvider = ({ children }: { children: ReactNode }) => {
     setExerciseMatchCache(new Map());
     setHasFetchedOnce(false);
   };
-  // Load on mount
-    useEffect(() => {
-      loadWorkoutPlan(true);
-
-      // Listen for auth changes
-      const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
-        loadWorkoutPlan(false);
-      });
-
-      return () => {
-        subscription.unsubscribe();
-      };
-    }, [loadWorkoutPlan]);
+  // Load ONLY on mount, NEVER reload automatically
+  useEffect(() => {
+    loadWorkoutPlan(true);
+    
+    // DON'T listen to auth changes - they cause unnecessary reloads
+    // Auth changes are handled at app level, not here
+  }, [loadWorkoutPlan]);
 
     return (
       <WorkoutPlanContext.Provider
