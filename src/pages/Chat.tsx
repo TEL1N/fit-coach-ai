@@ -167,8 +167,13 @@ const Chat = () => {
     const state = location.state as { conversationId?: string };
     if (state?.conversationId) {
       loadConversation(state.conversationId);
-      // Clear the location state after loading
-      window.history.replaceState({}, document.title);
+      // Clear the location state after loading (wrap in try-catch for SecurityError)
+      try {
+        window.history.replaceState({}, document.title);
+      } catch (error) {
+        // Silently fail if history API is not available (e.g., in iframe)
+        console.warn('Could not replace history state:', error);
+      }
       return;
     }
 

@@ -86,10 +86,16 @@ const Workouts = () => {
     if (state?.refreshPlan) {
       // Force refresh to load the newly created plan
       refreshWorkoutPlan(true);
-      // Clear the state to prevent re-triggering
-      window.history.replaceState({}, document.title);
+      // Clear the state to prevent re-triggering (wrap in try-catch for SecurityError)
+      try {
+        window.history.replaceState({}, document.title);
+      } catch (error) {
+        // Silently fail if history API is not available (e.g., in iframe)
+        console.warn('Could not replace history state:', error);
+      }
     }
-  }, [location.state, refreshWorkoutPlan]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.state]); // Only depend on location.state, not refreshWorkoutPlan
 
   const toggleDay = (dayId: string) => {
     setExpandedDays(prev => {

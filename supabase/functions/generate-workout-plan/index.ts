@@ -256,7 +256,7 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-5-20250514',
+        model: 'claude-3-5-sonnet-20241022', // Faster model - still high quality but ~2-3x faster than sonnet-4-5
         max_tokens: 4096,
         messages: [{
           role: 'user',

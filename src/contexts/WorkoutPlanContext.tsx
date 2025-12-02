@@ -53,10 +53,13 @@ export const WorkoutPlanProvider = ({ children }: { children: ReactNode }) => {
   const loadingRef = useRef(false);
   const lastLoadTimeRef = useRef(0);
   const cachedPlanIdRef = useRef<string | null>(null);
+  const hasFetchedOnceRef = useRef(false);
 
   const loadWorkoutPlan = useCallback(async (showLoadingState = true, forceRefresh = false) => {
-    // OPTIMIZATION: Skip query if we already have this plan cached
-    if (!forceRefresh && workoutPlan && cachedPlanIdRef.current === workoutPlan.id) {
+    // OPTIMIZATION: Skip query if we already have this plan cached and it's the same plan
+    // Use refs to avoid stale closures
+    const currentPlanId = cachedPlanIdRef.current;
+    if (!forceRefresh && currentPlanId && !loadingRef.current && hasFetchedOnceRef.current) {
       console.log('[WorkoutPlanContext] Plan already cached, skipping query');
       return;
     }
@@ -146,6 +149,7 @@ export const WorkoutPlanProvider = ({ children }: { children: ReactNode }) => {
       cachedPlanIdRef.current = plan.id; // Cache plan ID
       setIsLoading(false); // Show plan immediately
       setHasFetchedOnce(true);
+      hasFetchedOnceRef.current = true;
       loadingRef.current = false;
 
       console.log(`[WorkoutPlanContext] Plan visible in ${(performance.now() - overallStartTime).toFixed(0)}ms`);
@@ -156,9 +160,10 @@ export const WorkoutPlanProvider = ({ children }: { children: ReactNode }) => {
       console.error('Error loading workout plan:', error);
       setIsLoading(false);
       setHasFetchedOnce(true);
+      hasFetchedOnceRef.current = true;
       loadingRef.current = false;
     }
-  }, []); // Add empty dependency array for useCallback
+  }, []); // Empty deps - function is stable
 
   const refreshWorkoutPlan = useCallback(async (force = false) => {
     await loadWorkoutPlan(true, force);
@@ -170,6 +175,7 @@ export const WorkoutPlanProvider = ({ children }: { children: ReactNode }) => {
     cachedPlanIdRef.current = plan.id; // Cache plan ID
     setIsLoading(false);
     setHasFetchedOnce(true);
+    hasFetchedOnceRef.current = true;
     loadingRef.current = false;
   }, []);
 
@@ -177,14 +183,19 @@ export const WorkoutPlanProvider = ({ children }: { children: ReactNode }) => {
     setWorkoutPlan(null);
     cachedPlanIdRef.current = null;
     setHasFetchedOnce(false);
+    hasFetchedOnceRef.current = false;
   }, []);
   // Load ONLY on mount, NEVER reload automatically
   useEffect(() => {
-    loadWorkoutPlan(true);
+    // Only load once on mount - use ref to track if we've loaded
+    if (!hasFetchedOnceRef.current) {
+      loadWorkoutPlan(true);
+    }
     
     // DON'T listen to auth changes - they cause unnecessary reloads
     // Auth changes are handled at app level, not here
-  }, [loadWorkoutPlan]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only run once on mount
 
     return (
       <WorkoutPlanContext.Provider
