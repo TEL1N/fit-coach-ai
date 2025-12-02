@@ -3,6 +3,7 @@ import { Dumbbell, Trash2, GripVertical, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import ExerciseCard from "@/components/ExerciseCard";
 
 interface Exercise {
   id: string;
@@ -151,31 +152,15 @@ const ExerciseEditCard = ({
         <GripVertical className="w-5 h-5 text-muted-foreground/40" />
       </div>
 
-      {/* Exercise Image Placeholder */}
-      <div className="w-16 h-16 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
-        <Dumbbell className="w-6 h-6 text-muted-foreground" />
-      </div>
-
-      {/* Exercise Details */}
+      {/* Exercise Card with Image */}
       <div className="flex-1" onClick={onEdit}>
-        <h4 className="font-semibold text-base mb-1">
-          {exercise.exercise_name || `Exercise ${exercise.exercise_order}`}
-        </h4>
-        <div className="flex items-center gap-3 text-sm mb-1">
-          {exercise.sets && exercise.reps && (
-            <span className="font-medium">
-              {exercise.sets} × {exercise.reps}
-            </span>
-          )}
-          {exercise.rest_seconds && (
-            <span className="text-muted-foreground">
-              {exercise.rest_seconds} sec rest
-            </span>
-          )}
-        </div>
-        {exercise.notes && (
-          <p className="text-sm text-muted-foreground mt-2">{exercise.notes}</p>
-        )}
+        <ExerciseCard
+          exerciseName={exercise.exercise_name || `Exercise ${exercise.exercise_order}`}
+          sets={exercise.sets}
+          reps={exercise.reps}
+          restSeconds={exercise.rest_seconds}
+          notes={exercise.notes}
+        />
       </div>
 
       {/* Delete Button */}
