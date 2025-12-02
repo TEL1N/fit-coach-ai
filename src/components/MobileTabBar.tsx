@@ -2,9 +2,16 @@ import { Link, useLocation } from "react-router-dom";
 import { Home, MessageSquare, Dumbbell, User } from "lucide-react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { useWorkoutPlan } from "@/contexts/WorkoutPlanContext";
 
 const MobileTabBar = () => {
   const location = useLocation();
+  const { workoutPlan } = useWorkoutPlan();
+  
+  // Hide nav bar if no workout plan exists (new user flow)
+  if (!workoutPlan) {
+    return null;
+  }
 
   const tabs = [
     { path: "/home", icon: Home, label: "Home" },
@@ -14,15 +21,14 @@ const MobileTabBar = () => {
   ];
 
   return (
-    <nav 
+    <motion.nav 
+      initial={{ y: 100, opacity: 0 }}
+      animate={{ y: 0, opacity: 1 }}
+      transition={{ type: "spring", stiffness: 100, damping: 20, delay: 0.2 }}
       className="fixed bottom-0 left-0 right-0 z-50 glass-strong border-t border-white/10"
       style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
     >
-      <motion.div
-        initial={{ y: 100, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        className="max-w-md mx-auto"
-      >
+      <div className="max-w-md mx-auto">
         <div className="flex items-center justify-around h-20 px-4">
           {tabs.map((tab) => {
             const isActive = location.pathname === tab.path;
@@ -76,8 +82,8 @@ const MobileTabBar = () => {
             );
           })}
         </div>
-      </motion.div>
-    </nav>
+      </div>
+    </motion.nav>
   );
 };
 
