@@ -66,7 +66,7 @@ const Profile = () => {
       </div>
 
       {/* Main Content - Scrollable */}
-      <div className="flex-1 px-6 -mt-6 overflow-y-auto min-h-0" style={{ paddingBottom: 'calc(5rem + max(1rem, env(safe-area-inset-bottom)))' }}>
+      <div className="flex-1 px-6 -mt-6 overflow-y-auto min-h-0" style={{ paddingBottom: 'calc(8rem + env(safe-area-inset-bottom))' }}>
         {/* Stats Card */}
         <Card className="p-6 mb-4">
           <h3 className="font-semibold mb-4">Your Progress</h3>

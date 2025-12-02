@@ -83,7 +83,7 @@ const Home = () => {
       </motion.div>
 
       {/* Main Content - Scrollable */}
-      <div className="flex-1 px-4 -mt-8 overflow-y-auto min-h-0 pb-28">
+      <div className="flex-1 px-4 -mt-8 overflow-y-auto min-h-0" style={{ paddingBottom: 'calc(8rem + env(safe-area-inset-bottom))' }}>
         {/* Stats Cards with Staggered Animation */}
         <motion.div 
           className="grid grid-cols-3 gap-3 mb-6"

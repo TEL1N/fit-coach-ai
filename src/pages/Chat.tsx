@@ -394,7 +394,7 @@ const Chat = () => {
   }
 
   return (
-    <div className="h-[100dvh] bg-background flex flex-col overflow-hidden" style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'calc(4rem + env(safe-area-inset-bottom))' }}>
+    <div className="h-[100dvh] bg-background flex flex-col overflow-hidden" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
       {/* Conversation Selector */}
       <ConversationSelector 
         currentConversationId={conversationId}
@@ -417,7 +417,7 @@ const Chat = () => {
       )}
 
       {/* Messages Area - Scrollable */}
-      <div className="flex-1 px-6 py-8 overflow-y-auto min-h-0">
+      <div className="flex-1 px-6 py-8 overflow-y-auto min-h-0" style={{ paddingBottom: 'calc(10rem + env(safe-area-inset-bottom))' }}>
         <div className="max-w-2xl mx-auto">
           {messages.map((msg, index) => (
             <div

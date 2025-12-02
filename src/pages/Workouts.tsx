@@ -315,16 +315,26 @@ const Workouts = () => {
     return () => subscription.unsubscribe();
   }, [navigate]);
 
-  if (isLoading) {
+  if (isLoading || !workoutPlan) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="shimmer w-12 h-12 rounded-full"></div>
+      <div className="h-[100dvh] bg-background flex flex-col">
+        <div className="bg-card border-b border-border px-6 py-5 flex-shrink-0" style={{ paddingTop: 'max(1.25rem, env(safe-area-inset-top))' }}>
+          <h1 className="text-2xl font-bold">My Workouts</h1>
+          <p className="text-sm text-muted-foreground">Loading your plan...</p>
+        </div>
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center space-y-4">
+            <div className="shimmer w-16 h-16 rounded-full mx-auto"></div>
+            <p className="text-muted-foreground">Loading your workout plan...</p>
+          </div>
+        </div>
+        <MobileTabBar />
       </div>
     );
   }
 
   return (
-    <div className="h-[100dvh] bg-background flex flex-col overflow-hidden transition-all duration-300 ease-out">
+    <div className="h-[100dvh] bg-background flex flex-col overflow-hidden transition-all duration-300 ease-out" style={{ paddingBottom: 'calc(5rem + env(safe-area-inset-bottom))' }}>
       {/* Header */}
       <div className="bg-card border-b border-border px-6 py-5 flex-shrink-0" style={{ paddingTop: 'max(1.25rem, env(safe-area-inset-top))' }}>
         <h1 className="text-2xl font-bold">My Workouts</h1>
@@ -336,8 +346,8 @@ const Workouts = () => {
         className="flex-1 px-6 py-8 overflow-y-auto min-h-0" 
         style={{ 
           paddingBottom: isEditMode 
-            ? 'calc(5rem + 4rem + max(1rem, env(safe-area-inset-bottom)))' 
-            : 'calc(5rem + max(1rem, env(safe-area-inset-bottom)))' 
+            ? 'calc(10rem + env(safe-area-inset-bottom))' 
+            : 'calc(8rem + env(safe-area-inset-bottom))' 
         }}
       >
         {workoutPlan ? (
@@ -541,7 +551,7 @@ const Workouts = () => {
         <div 
           className="fixed left-0 right-0 bg-card/95 backdrop-blur-xl border-t border-border px-6 py-4 flex gap-3 z-40"
           style={{ 
-            bottom: 'calc(4rem + env(safe-area-inset-bottom))',
+            bottom: 'calc(5rem + env(safe-area-inset-bottom))',
           }}
         >
           <Button

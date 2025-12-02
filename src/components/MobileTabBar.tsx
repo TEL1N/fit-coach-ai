@@ -15,15 +15,15 @@ const MobileTabBar = () => {
 
   return (
     <nav 
-      className="fixed bottom-4 left-4 right-4 z-50 flex justify-center"
-      style={{ paddingBottom: 'max(0rem, env(safe-area-inset-bottom))' }}
+      className="fixed bottom-0 left-0 right-0 z-50 glass-strong border-t border-white/10"
+      style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
     >
       <motion.div
         initial={{ y: 100, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
-        className="glass-strong rounded-[2rem] shadow-floating px-4 max-w-md w-full"
+        className="max-w-md mx-auto"
       >
-        <div className="flex items-center justify-around h-20">
+        <div className="flex items-center justify-around h-20 px-4">
           {tabs.map((tab) => {
             const isActive = location.pathname === tab.path;
             const Icon = tab.icon;
