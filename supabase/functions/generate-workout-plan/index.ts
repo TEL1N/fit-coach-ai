@@ -144,17 +144,7 @@ serve(async (req) => {
     const { conversationId, userId } = await req.json();
     console.log('Generating workout plan for conversation:', conversationId);
 
-    // Fetch conversation messages
-    const { data: messages, error: messagesError } = await supabase
-      .from('messages')
-      .select('role, content')
-      .eq('conversation_id', conversationId)
-      .order('created_at', { ascending: true });
 
-    if (messagesError) {
-      console.error('Error fetching messages:', messagesError);
-      throw new Error('Failed to fetch conversation messages');
-    }
 
     // Fetch user profile
     const { data: userProfile, error: profileError } = await supabase
@@ -167,14 +157,11 @@ serve(async (req) => {
       console.log('No user profile found, continuing without it');
     }
 
-    // Build conversation history with the workout plan generation prompt
-    const conversationHistory = messages.map(m => ({ role: m.role, content: m.content }));
-    conversationHistory.push({
-      role: 'user',
-      content: 'Please create my personalized workout plan in JSON format based on our conversation.'
-    });
-
-    console.log('Calling Claude API with', conversationHistory.length, 'messages');
+      // OPTIMIZATION: Skip conversation history - just use profile directly
+  const conversationHistory = [{
+    role: 'user',
+    content: 'Please create my personalized workout plan in JSON format based on my profile.'
+  }];
 
     // Call Claude API
     const response = await fetch('https://api.anthropic.com/v1/messages', {
@@ -186,7 +173,7 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         model: 'claude-sonnet-4-5',
-        max_tokens: 8192,
+        max_tokens: 4096,
         system: getFitnessCoachSystemPrompt(userProfile),
         messages: conversationHistory,
       }),
