@@ -341,26 +341,26 @@ const Chat = () => {
 
     const userMessage = message.trim();
     
-    // FIRST: Check if user has already used their free modification BEFORE sending anything
-    // This prevents wasting tokens and provides better UX
+    // FIRST: Check if user has an active workout plan BEFORE sending anything
+    // If they have a plan, chat is locked - show paywall immediately
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) {
       console.error('[Chat] No session found');
       return;
     }
     
-    // Check modification status BEFORE sending ANY message
-    // Once free modification is used, ALL messages are blocked (not just modification requests)
-    const { data: profileCheck } = await supabase
-      .from('user_fitness_profiles')
-      .select('has_used_free_modification')
+    // Check if user has an active workout plan - if so, chat is locked
+    // This is the most robust check - works regardless of how the plan was created
+    const { data: existingPlans } = await supabase
+      .from('workout_plans')
+      .select('id')
       .eq('user_id', session.user.id)
-      .single();
+      .eq('is_active', true)
+      .limit(1);
     
-    if (profileCheck?.has_used_free_modification) {
-      // User has already generated their workout plan - chat is locked
-      // Show upgrade modal immediately, don't send any message
-      console.log('[Chat] Free tier exhausted - chat is locked, showing upgrade modal');
+    if (existingPlans && existingPlans.length > 0) {
+      // User has an active workout plan - chat is locked, show paywall
+      console.log('[Chat] User has active plan - chat locked, showing paywall');
       setIsUpgradeModalOpen(true);
       return; // Don't send message, don't waste tokens
     }
