@@ -677,7 +677,7 @@ const Workouts = () => {
         />
       )}
 
-      <MobileTabBar />
+      {!activeWorkoutDayId && <MobileTabBar />}
     </div>
   );
 };
