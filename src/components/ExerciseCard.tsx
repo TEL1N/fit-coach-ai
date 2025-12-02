@@ -43,7 +43,7 @@ const ExerciseCard = ({
       <DialogTrigger asChild>
         <div className="flex gap-3 hover:bg-white/5 transition-all duration-200 rounded-xl p-2 -m-2 cursor-pointer active:scale-[0.98]">
           {/* Exercise Image or Placeholder with Glow */}
-          <div className={`w-16 h-16 rounded-2xl flex items-center justify-center flex-shrink-0 overflow-hidden relative ${
+          <div className={`w-20 h-20 rounded-2xl flex items-center justify-center flex-shrink-0 overflow-hidden relative ${
             imageUrl ? 'shadow-glow-sm' : ''
           }`}>
             <div className={`absolute inset-0 ${imageUrl ? 'gradient-primary opacity-20' : 'bg-muted'}`}></div>
@@ -51,7 +51,14 @@ const ExerciseCard = ({
               <img
                 src={imageUrl}
                 alt={exerciseName}
+                loading="lazy"
                 className="w-full h-full object-cover relative z-10"
+                style={{ 
+                  imageRendering: 'crisp-edges',
+                  WebkitBackfaceVisibility: 'hidden',
+                  backfaceVisibility: 'hidden',
+                  transform: 'translateZ(0)'
+                }}
               />
             ) : (
               <Dumbbell className="w-6 h-6 text-muted-foreground relative z-10" />
@@ -91,13 +98,20 @@ const ExerciseCard = ({
         </div>
 
         {/* Exercise Image with Premium Glow */}
-        <div className="w-full aspect-square flex items-center justify-center overflow-hidden relative">
+        <div className="w-full aspect-square flex items-center justify-center overflow-hidden relative bg-black/20">
           <div className={`absolute inset-0 ${imageUrl ? 'gradient-energy opacity-30 blur-2xl' : 'bg-muted'}`}></div>
           {imageUrl ? (
             <img
               src={imageUrl}
               alt={exerciseName}
-              className="w-full h-full object-cover relative z-10 shadow-glow-lg"
+              loading="eager"
+              className="w-full h-full object-contain relative z-10 shadow-glow-lg"
+              style={{ 
+                imageRendering: 'auto',
+                WebkitBackfaceVisibility: 'hidden',
+                backfaceVisibility: 'hidden',
+                transform: 'translateZ(0)'
+              }}
             />
           ) : (
             <div className="relative z-10 w-20 h-20 rounded-full gradient-primary flex items-center justify-center shadow-glow-md">
