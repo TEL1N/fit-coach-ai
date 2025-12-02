@@ -72,7 +72,6 @@ import WorkoutSession from "@/components/WorkoutSession";
 import { useWorkoutPlan } from "@/contexts/WorkoutPlanContext";
 import { Calendar, Clock, Dumbbell, Plus, ChevronDown, ChevronUp, MessageSquare, Pencil, Trash2, Play, CheckCircle2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { motion, AnimatePresence } from "framer-motion";
 import {
   Collapsible,
   CollapsibleContent,
@@ -596,33 +595,27 @@ const Workouts = () => {
         )}
       </div>
 
-      {/* Fixed Save/Cancel Actions - Slide In When Changes Pending */}
-      <AnimatePresence>
-        {isEditMode && hasPendingChanges && (
-          <motion.div
-            initial={{ y: 120, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: 120, opacity: 0 }}
-            transition={{ type: "spring", stiffness: 260, damping: 30 }}
-            className="fixed left-0 right-0 bg-card/95 backdrop-blur-xl border-t border-border px-6 py-4 flex gap-3 z-40"
-            style={{ bottom: 'calc(5rem + env(safe-area-inset-bottom))' }}
+      {/* Fixed Save/Cancel Actions - Show When Changes Pending */}
+      {isEditMode && hasPendingChanges && (
+        <div
+          className="fixed left-0 right-0 bg-card/95 backdrop-blur-xl border-t border-border px-6 py-4 flex gap-3 z-40"
+          style={{ bottom: 'calc(5rem + env(safe-area-inset-bottom))' }}
+        >
+          <Button
+            variant="outline"
+            className="flex-1 h-12 rounded-xl font-medium"
+            onClick={handleCancelEdit}
           >
-            <Button
-              variant="outline"
-              className="flex-1 h-12 rounded-xl font-medium"
-              onClick={handleCancelEdit}
-            >
-              Cancel
-            </Button>
-            <Button
-              className="flex-1 h-12 rounded-xl font-semibold"
-              onClick={handleSaveChanges}
-            >
-              Save Changes
-            </Button>
-          </motion.div>
-        )}
-      </AnimatePresence>
+            Cancel
+          </Button>
+          <Button
+            className="flex-1 h-12 rounded-xl font-semibold"
+            onClick={handleSaveChanges}
+          >
+            Save Changes
+          </Button>
+        </div>
+      )}
 
       <EditPlanBottomSheet
         isOpen={isEditSheetOpen}
