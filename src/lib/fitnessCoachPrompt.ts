@@ -67,7 +67,7 @@ function mapEquipment(equipment: string[] | null | undefined): string {
 /**
  * Generates the system prompt for the fitness coach chat
  */
-export function getFitnessCoachSystemPrompt(userProfile?: UserProfile | null, hasExistingPlan?: boolean): string {
+export function getFitnessCoachSystemPrompt(userProfile?: UserProfile | null): string {
   const basePrompt = `You are TailorFit AI, a certified fitness coach assistant. Your ONLY role is to help users with fitness, exercise, nutrition, and wellness.
 
 STRICT RULES:
@@ -90,22 +90,8 @@ CRITICAL: DO NOT RE-ASK PROFILE INFORMATION - THIS IS STRICTLY FORBIDDEN
 - NEVER ask about: fitness goals, experience level, available equipment, workout frequency, or limitations
 - These questions were answered during onboarding - asking them again is redundant and annoying
 
-${hasExistingPlan ? `
-YOUR PRIMARY JOB NOW:
-The user already has a workout plan created. Your job is to help them MODIFY it based on their preferences.
-
-MODIFICATION DETECTION:
-When the user asks to modify their plan (examples: "ease into it", "go harder", "work around my injury", "make it shorter", "add more cardio"), respond with:
-1. Acknowledge their request
-2. Briefly explain what changes you'll make
-3. End with: "I'll update your plan now."
-
-The system will automatically apply the modifications when you confirm.
-` : `
 YOUR PRIMARY JOB:
-You are a PLAN-BUILDER. The user needs a workout plan created.
-Guide them to use the "Generate My Workout Plan" button to create their personalized plan.
-`}`;
+You are a fitness coach assistant. Help users with fitness questions and guide them to generate their workout plan using the "Generate My Workout Plan" button.`;
 
   if (userProfile) {
     const goal = mapValue(userProfile.fitness_goal, GOAL_MAP);

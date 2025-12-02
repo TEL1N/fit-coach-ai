@@ -358,20 +358,12 @@ const Chat = () => {
       .single();
     
     if (profileCheck?.has_used_free_modification) {
-      // User has already used their free modification - show upgrade modal immediately
-      // Block ALL messages, not just modification requests
-      console.log('[Chat] User has already used free modification, showing upgrade modal');
+      // User has already generated their workout plan - chat is locked
+      // Show upgrade modal immediately, don't send any message
+      console.log('[Chat] Free tier exhausted - chat is locked, showing upgrade modal');
       setIsUpgradeModalOpen(true);
       return; // Don't send message, don't waste tokens
     }
-    
-    // Check if this looks like a modification request (for later use in the function)
-    const modificationKeywords = ['ease', 'easier', 'harder', 'intense', 'injury', 'hurt', 'pain', 
-      'shorter', 'longer', 'less', 'more', 'reduce', 'increase', 'change', 'modify', 'adjust',
-      'cardio', 'strength', 'rest', 'recovery', 'beginner', 'advanced', 'swap', 'replace', 
-      'different', 'alternative', 'skip', 'remove', 'add'];
-    const isModificationRequest = hasExistingPlan && 
-      modificationKeywords.some(keyword => userMessage.toLowerCase().includes(keyword));
     
     // Now proceed with sending the message
     setMessage("");
@@ -425,7 +417,7 @@ const Chat = () => {
         console.error('[Chat] Profile fetch error:', profileError);
       }
       
-      const systemPrompt = getFitnessCoachSystemPrompt(profileToUse, hasExistingPlan);
+      const systemPrompt = getFitnessCoachSystemPrompt(profileToUse);
       console.log('[Chat] System prompt includes profile:', systemPrompt.includes('USER\'S FITNESS PROFILE'));
       console.log('[Chat] Has existing plan:', hasExistingPlan);
       console.log('[Chat] Is modification request:', isModificationRequest);
@@ -453,66 +445,6 @@ const Chat = () => {
         setMessages(prev => [...prev, aiMsg as Message]);
         // Play receive sound
         playReceiveSound();
-      }
-      
-      // Check if AI confirmed a modification (contains "update your plan" or similar)
-      const confirmationPhrases = ["update your plan", "updating your plan", "modify your plan", 
-        "adjust your plan", "i'll update", "i'll modify", "i'll adjust", "changes made"];
-      const isModificationConfirmation = isModificationRequest && 
-        confirmationPhrases.some(phrase => aiResponse.toLowerCase().includes(phrase));
-      
-      if (isModificationConfirmation && workoutPlan) {
-        console.log('[Chat] AI confirmed modification, calling modify-workout-plan edge function');
-        
-        // Call the modification edge function
-        const { data: modResult, error: modError } = await supabase.functions.invoke('modify-workout-plan', {
-          body: {
-            userId: session?.user?.id,
-            workoutPlanId: workoutPlan.id,
-            modificationRequest: userMessage,
-            userProfile: profileToUse
-          }
-        });
-        
-        if (modError) {
-          console.error('[Chat] Modification error:', modError);
-          toast({
-            title: "Error",
-            description: "Failed to modify your plan. Please try again.",
-            variant: "destructive",
-          });
-        } else if (modResult?.success) {
-          console.log('[Chat] Plan modified successfully:', modResult.summary);
-          
-          // Refresh the workout plan context
-          await refreshWorkoutPlan(true);
-          
-          // Update the local state
-          setHasUsedFreeModification(true);
-          
-          // Show success message
-          toast({
-            title: "Plan Updated! 🎉",
-            description: modResult.summary || "Your workout plan has been modified.",
-          });
-          
-          // Add a follow-up message from AI
-          const followUpMsg = `Done! ${modResult.summary} Check your Workouts tab to see the updated plan.`;
-          const { data: followUp } = await supabase
-            .from('messages')
-            .insert({
-              conversation_id: conversationId,
-              role: 'assistant',
-              content: followUpMsg,
-            })
-            .select()
-            .single();
-          
-          if (followUp) {
-            setMessages(prev => [...prev, followUp as Message]);
-            playReceiveSound();
-          }
-        }
       }
 
       // Check if response contains JSON workout plan and save it
@@ -778,6 +710,16 @@ const Chat = () => {
 
         setWorkoutPlanId(data.workoutPlanId);
         setHasExistingPlan(true);
+        
+        // IMPORTANT: Set the free modification flag - after this, user cannot send more messages
+        // This locks the chat after the workout plan is generated
+        await supabase
+          .from('user_fitness_profiles')
+          .update({ has_used_free_modification: true })
+          .eq('user_id', session.user.id);
+        
+        setHasUsedFreeModification(true);
+        console.log('[Chat] Free tier used - chat is now locked');
         
         // Play receive sound
         playReceiveSound();
