@@ -21,34 +21,69 @@ interface ExerciseMatch {
 
 let exercisesCache: WgerExercise[] | null = null;
 let fuseInstance: Fuse<WgerExercise> | null = null;
+let isLoading = false;
+let loadPromise: Promise<void> | null = null;
 
 // Load exercises from database and initialize Fuse
 async function loadExercises(): Promise<void> {
-  if (exercisesCache) return;
-
-  const { data, error } = await supabase
-    .from('exercises')
-    .select('*');
-
-  if (error) {
-    console.error('Error loading exercises:', error);
-    throw error;
+  if (exercisesCache) {
+    console.log('[FuzzyMatcher] Using cached exercises:', exercisesCache.length);
+    return;
   }
 
-  exercisesCache = data || [];
+  // If already loading, wait for existing load to complete
+  if (isLoading && loadPromise) {
+    console.log('[FuzzyMatcher] Load already in progress, waiting...');
+    return loadPromise;
+  }
 
-  // Initialize Fuse.js with fuzzy search configuration
-  fuseInstance = new Fuse(exercisesCache, {
-    keys: [
-      { name: 'name', weight: 2 },
-      { name: 'name_normalized', weight: 1.5 },
-      { name: 'description', weight: 0.5 } // Add description for fallback matching
-    ],
-    threshold: 0.4, // 0 = exact match, 1 = match anything
-    includeScore: true,
-    minMatchCharLength: 3,
-    ignoreLocation: true, // Search entire description text
-  });
+  isLoading = true;
+  const startTime = performance.now();
+  console.log('[FuzzyMatcher] Starting exercise load...');
+
+  loadPromise = (async () => {
+    try {
+      const { data, error } = await supabase
+        .from('exercises')
+        .select('*');
+
+      if (error) {
+        console.error('Error loading exercises:', error);
+        throw error;
+      }
+
+      exercisesCache = data || [];
+      const loadTime = performance.now() - startTime;
+      console.log(`[FuzzyMatcher] Loaded ${exercisesCache.length} exercises in ${loadTime.toFixed(0)}ms`);
+
+      // Initialize Fuse.js with fuzzy search configuration
+      const fuseStartTime = performance.now();
+      fuseInstance = new Fuse(exercisesCache, {
+        keys: [
+          { name: 'name', weight: 2 },
+          { name: 'name_normalized', weight: 1.5 },
+          { name: 'description', weight: 0.5 } // Add description for fallback matching
+        ],
+        threshold: 0.4, // 0 = exact match, 1 = match anything
+        includeScore: true,
+        minMatchCharLength: 3,
+        ignoreLocation: true, // Search entire description text
+      });
+      const fuseTime = performance.now() - fuseStartTime;
+      console.log(`[FuzzyMatcher] Initialized Fuse.js in ${fuseTime.toFixed(0)}ms`);
+    } finally {
+      isLoading = false;
+      loadPromise = null;
+    }
+  })();
+
+  return loadPromise;
+}
+
+// Pre-load exercises on app startup
+export async function preloadExercises(): Promise<void> {
+  console.log('[FuzzyMatcher] Preload requested');
+  await loadExercises();
 }
 
 // Common aliases for better matching
@@ -202,6 +237,9 @@ export async function findExerciseMatch(
 export async function findExerciseMatches(
   exerciseNames: string[]
 ): Promise<Map<string, ExerciseMatch | null>> {
+  const startTime = performance.now();
+  console.log(`[FuzzyMatcher] Finding matches for ${exerciseNames.length} exercises...`);
+  
   const results = new Map<string, ExerciseMatch | null>();
   
   // Run all matches in parallel
@@ -212,6 +250,9 @@ export async function findExerciseMatches(
   exerciseNames.forEach((name, index) => {
     results.set(name, matches[index]);
   });
+  
+  const duration = performance.now() - startTime;
+  console.log(`[FuzzyMatcher] Matched ${exerciseNames.length} exercises in ${duration.toFixed(0)}ms`);
   
   return results;
 }

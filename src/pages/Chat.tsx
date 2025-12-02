@@ -431,6 +431,8 @@ const Chat = () => {
       console.error('Error checking existing plans:', error);
     }
 
+    const startTime = performance.now();
+    console.log('[Chat] Starting workout plan generation...');
     setIsSending(true);
 
     try {
@@ -441,6 +443,7 @@ const Chat = () => {
       }
 
       // Call the edge function to generate workout plan
+      const edgeStartTime = performance.now();
       const { data, error } = await supabase.functions.invoke('generate-workout-plan', {
         body: { 
           conversationId,
@@ -450,10 +453,13 @@ const Chat = () => {
 
       if (error) throw error;
 
+      console.log(`[Chat] Edge function completed in ${(performance.now() - edgeStartTime).toFixed(0)}ms`);
+
       if (data?.success) {
-        console.log('Workout plan generated:', data.workoutName);
+        console.log(`[Chat] Workout plan generated: ${data.workoutName}`);
         
         // Reload messages to get the AI's response
+        const messagesStartTime = performance.now();
         const { data: newMessages } = await supabase
           .from('messages')
           .select('*')
@@ -463,6 +469,7 @@ const Chat = () => {
         if (newMessages) {
           setMessages(newMessages as Message[]);
         }
+        console.log(`[Chat] Messages reloaded in ${(performance.now() - messagesStartTime).toFixed(0)}ms`);
 
         setWorkoutPlanId(data.workoutPlanId);
         setHasExistingPlan(true);
@@ -472,6 +479,9 @@ const Chat = () => {
 
         // Show success banner to reveal navigation
         setShowSuccessBanner(true);
+
+        const totalTime = performance.now() - startTime;
+        console.log(`[Chat] ✅ Total plan generation time: ${totalTime.toFixed(0)}ms`);
 
         // Show success message with navigation button
         toast({

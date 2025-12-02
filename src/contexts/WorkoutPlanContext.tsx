@@ -52,6 +52,9 @@ export const WorkoutPlanProvider = ({ children }: { children: ReactNode }) => {
   const [hasFetchedOnce, setHasFetchedOnce] = useState(false);
 
   const loadWorkoutPlan = async (showLoadingState = true) => {
+    const overallStartTime = performance.now();
+    console.log('[WorkoutPlanContext] Starting workout plan load...');
+    
     if (showLoadingState) {
       setIsLoading(true);
     }
@@ -65,6 +68,7 @@ export const WorkoutPlanProvider = ({ children }: { children: ReactNode }) => {
       }
 
       // Load active workout plan
+      const dbStartTime = performance.now();
       const { data: plans } = await supabase
         .from('workout_plans')
         .select('*')
@@ -74,12 +78,14 @@ export const WorkoutPlanProvider = ({ children }: { children: ReactNode }) => {
         .limit(1);
 
       if (!plans || plans.length === 0) {
+        console.log('[WorkoutPlanContext] No active plan found');
         setWorkoutPlan(null);
         setIsLoading(false);
         return;
       }
 
       const plan = plans[0];
+      console.log(`[WorkoutPlanContext] Plan fetched in ${(performance.now() - dbStartTime).toFixed(0)}ms`);
 
       // Load conversation if linked
       const { data: conversation } = await supabase
@@ -97,6 +103,7 @@ export const WorkoutPlanProvider = ({ children }: { children: ReactNode }) => {
 
       if (days) {
         // Load exercises for each day
+        const exercisesStartTime = performance.now();
         const daysWithExercises = await Promise.all(
           days.map(async (day) => {
             const { data: exercises } = await supabase
@@ -111,7 +118,9 @@ export const WorkoutPlanProvider = ({ children }: { children: ReactNode }) => {
             };
           })
         );
+        console.log(`[WorkoutPlanContext] Exercises fetched in ${(performance.now() - exercisesStartTime).toFixed(0)}ms`);
 
+        // Set workout plan immediately so UI can start rendering
         setWorkoutPlan({
           id: plan.id,
           name: plan.name,
@@ -119,8 +128,10 @@ export const WorkoutPlanProvider = ({ children }: { children: ReactNode }) => {
           days: daysWithExercises,
           conversationId: conversation?.id
         });
+        console.log(`[WorkoutPlanContext] Plan state set in ${(performance.now() - overallStartTime).toFixed(0)}ms`);
 
         // Pre-load all exercise matches in parallel
+        const matchStartTime = performance.now();
         const allExerciseNames = daysWithExercises
           .flatMap(day => day.exercises)
           .map(ex => ex.exercise_name)
@@ -147,8 +158,12 @@ export const WorkoutPlanProvider = ({ children }: { children: ReactNode }) => {
           });
           
           setExerciseMatchCache(cache);
+          console.log(`[WorkoutPlanContext] Exercise matching complete in ${(performance.now() - matchStartTime).toFixed(0)}ms`);
         }
       }
+      
+      const totalTime = performance.now() - overallStartTime;
+      console.log(`[WorkoutPlanContext] ✅ Total load time: ${totalTime.toFixed(0)}ms`);
     } catch (error) {
       console.error('Error loading workout plan:', error);
     } finally {
