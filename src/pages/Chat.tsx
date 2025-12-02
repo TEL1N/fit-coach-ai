@@ -46,6 +46,7 @@ const Chat = () => {
   } = useChatContext();
   const { workoutPlan, setWorkoutPlanDirectly, refreshWorkoutPlan } = useWorkoutPlan();
   const [isSending, setIsSending] = useState(false);
+  const [isGeneratingPlan, setIsGeneratingPlan] = useState(false); // Separate state for plan generation
   const [message, setMessage] = useState("");
   const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
   const [hasExistingPlan, setHasExistingPlan] = useState(false);
