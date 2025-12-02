@@ -63,10 +63,19 @@ export async function syncWgerExercises(): Promise<{ success: boolean; count: nu
       }
 
       const data: WgerResponse = await response.json();
+      
+      // Log raw response structure for debugging
       console.log('Raw API response:', { count: data.count, hasResults: !!data.results, resultsLength: data.results?.length });
+      console.log('API response preview:', JSON.stringify(data).slice(0, 1000));
       
       if (data.results && data.results.length > 0) {
         console.log('First exercise object:', JSON.stringify(data.results[0], null, 2));
+        console.log('First result structure:', {
+          id: data.results[0].id,
+          hasTranslations: !!data.results[0].translations,
+          translationsCount: data.results[0].translations?.length,
+          firstTranslation: data.results[0].translations?.[0]
+        });
       }
       
       allExercises = [...allExercises, ...data.results];
