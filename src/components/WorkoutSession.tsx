@@ -193,13 +193,16 @@ const WorkoutSession = ({ dayName, exercises, onComplete, onExit }: WorkoutSessi
 
       {/* Main Content */}
       <div 
-        className="flex-1 overflow-y-auto px-6 py-8 flex flex-col items-center justify-center"
-        style={{ paddingBottom: 'max(2rem, env(safe-area-inset-bottom))' }}
+        className="flex-1 px-6 flex flex-col items-center justify-between min-h-0"
+        style={{ 
+          paddingTop: '1rem',
+          paddingBottom: 'calc(1rem + env(safe-area-inset-bottom))' 
+        }}
       >
         {isResting ? (
           /* Rest Screen */
-          <div className="text-center space-y-6 max-w-sm w-full">
-            <div className="w-32 h-32 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
+          <div className="flex-1 flex flex-col items-center justify-center text-center space-y-6 max-w-sm w-full">
+            <div className="w-32 h-32 rounded-full bg-primary/10 flex items-center justify-center">
               <Timer className="w-16 h-16 text-primary" />
             </div>
             
@@ -208,7 +211,7 @@ const WorkoutSession = ({ dayName, exercises, onComplete, onExit }: WorkoutSessi
               <p className="text-6xl font-bold tabular-nums">{formatTime(restTimeLeft)}</p>
             </div>
 
-            <div className="space-y-3">
+            <div className="space-y-3 w-full">
               <p className="text-sm text-muted-foreground">
                 Next: Set {currentSet} of {totalSets}
               </p>
@@ -222,9 +225,9 @@ const WorkoutSession = ({ dayName, exercises, onComplete, onExit }: WorkoutSessi
           </div>
         ) : (
           /* Exercise Screen */
-          <div className="space-y-6 max-w-sm w-full">
+          <>
             {/* Exercise Image */}
-            <div className="w-full aspect-square rounded-3xl bg-muted overflow-hidden flex items-center justify-center">
+            <div className="w-full max-w-xs aspect-square rounded-3xl bg-muted overflow-hidden flex items-center justify-center flex-shrink-0">
               {currentExercise.imageUrl ? (
                 <img
                   src={currentExercise.imageUrl}
@@ -237,45 +240,45 @@ const WorkoutSession = ({ dayName, exercises, onComplete, onExit }: WorkoutSessi
             </div>
 
             {/* Exercise Details */}
-            <div className="text-center space-y-2">
-              <h3 className="text-2xl font-bold">
+            <div className="text-center space-y-1 flex-shrink-0">
+              <h3 className="text-xl font-bold">
                 {currentExercise.exercise_name}
               </h3>
               
-              <div className="flex items-center justify-center gap-4 text-muted-foreground">
-                <span className="text-lg">
+              <div className="flex items-center justify-center gap-3 text-muted-foreground text-sm">
+                <span>
                   {currentExercise.sets} sets
                 </span>
                 <span>•</span>
-                <span className="text-lg">
+                <span>
                   {currentExercise.reps} reps
                 </span>
               </div>
 
               {currentExercise.notes && (
-                <p className="text-sm text-muted-foreground pt-2">
+                <p className="text-xs text-muted-foreground pt-1">
                   {currentExercise.notes}
                 </p>
               )}
             </div>
 
             {/* Set Counter */}
-            <Card className="p-6 text-center">
-              <p className="text-sm text-muted-foreground mb-1">Current Set</p>
-              <p className="text-5xl font-bold tabular-nums">
-                {currentSet} <span className="text-2xl text-muted-foreground">/ {totalSets}</span>
+            <Card className="p-4 text-center w-full max-w-xs flex-shrink-0">
+              <p className="text-xs text-muted-foreground mb-1">Current Set</p>
+              <p className="text-4xl font-bold tabular-nums">
+                {currentSet} <span className="text-xl text-muted-foreground">/ {totalSets}</span>
               </p>
             </Card>
 
             {/* Complete Set Button */}
             <Button
-              className="w-full h-16 rounded-xl text-lg font-semibold"
+              className="w-full max-w-xs h-14 rounded-xl text-base font-semibold flex-shrink-0"
               onClick={handleCompleteSet}
             >
-              <Check className="w-6 h-6 mr-2" />
+              <Check className="w-5 h-5 mr-2" />
               Complete Set
             </Button>
-          </div>
+          </>
         )}
       </div>
     </div>
