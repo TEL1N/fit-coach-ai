@@ -1,6 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { findExerciseMatches } from "@/lib/fuzzyMatcher";
 
 interface Exercise {
   id: string;
@@ -142,37 +141,8 @@ export const WorkoutPlanProvider = ({ children }: { children: ReactNode }) => {
 
       console.log(`[WorkoutPlanContext] Plan visible in ${(performance.now() - overallStartTime).toFixed(0)}ms`);
 
-      // THEN load images in background (don't block UI)
-      const allExerciseNames = daysWithExercises
-        .flatMap((day: any) => day.exercises)
-        .map((ex: any) => ex.exercise_name)
-        .filter((name: any): name is string => !!name);
-
-      if (allExerciseNames.length > 0) {
-        // This runs in background while user sees the plan
-        findExerciseMatches(allExerciseNames).then(matches => {
-          const cache = new Map<string, { imageUrl: string | null; confidence: number }>();
-          
-          matches.forEach((match, name) => {
-            if (match && match.confidence >= 0.8) {
-              const imageUrls = match.exercise.image_urls;
-              const imageUrl = imageUrls && imageUrls.length > 0
-                ? (imageUrls[0].startsWith('http') ? imageUrls[0] : `https://wger.de${imageUrls[0]}`)
-                : null;
-              
-              cache.set(name, {
-                imageUrl,
-                confidence: match.confidence
-              });
-            } else {
-              cache.set(name, { imageUrl: null, confidence: 0 });
-            }
-          });
-          
-          setExerciseMatchCache(cache);
-          console.log(`[WorkoutPlanContext] Images loaded in background`);
-        });
-      }
+      // Images removed for performance - plan loads instantly
+      // Can be re-added later with lazy loading when images are clicked
     } catch (error) {
       console.error('Error loading workout plan:', error);
       setIsLoading(false);

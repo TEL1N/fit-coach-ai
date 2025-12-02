@@ -624,7 +624,7 @@ const Workouts = () => {
             .find(d => d.id === activeWorkoutDayId)?.exercises
             .map(ex => ({
               ...ex,
-              imageUrl: ex.exercise_name ? exerciseMatchCache.get(ex.exercise_name)?.imageUrl || null : null,
+              imageUrl: null, // Images disabled for performance
             })) || []
           }
           onComplete={handleWorkoutComplete}

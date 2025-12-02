@@ -1,4 +1,3 @@
-import { useEffect } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -13,20 +12,12 @@ import Workouts from "./pages/Workouts";
 import Profile from "./pages/Profile";
 import Setup from "./pages/admin/Setup";
 import NotFound from "./pages/NotFound";
-import { preloadExercises } from "@/lib/fuzzyMatcher";
 
 const queryClient = new QueryClient();
 
 const App = () => {
-  // Preload exercise database on app startup
-  useEffect(() => {
-    console.log('[App] Preloading exercise database...');
-    preloadExercises().then(() => {
-      console.log('[App] Exercise database preloaded');
-    }).catch(err => {
-      console.error('[App] Failed to preload exercises:', err);
-    });
-  }, []);
+  // Exercise preloading removed for performance - images disabled
+  // Can be re-added later with lazy loading if needed
 
   return (
     <QueryClientProvider client={queryClient}>
