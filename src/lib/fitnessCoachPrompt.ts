@@ -93,16 +93,18 @@ Use this EXACT JSON format (no weeks_duration or week_number fields):
 }
 
 EXERCISE NAMING (CRITICAL):
-Use simple, common exercise names:
-- "bench press" NOT "barbell bench press"
-- "squat" NOT "back squat"  
-- "deadlift"
-- "pull up" NOT "pullup"
-- "shoulder press"
-- "bicep curl"
-- "row"
-- "lunge"
-- "push up" NOT "pushup"
+Always use full exercise names with equipment type (e.g. 'barbell bench press' not 'bench press', 'seated cable row' not 'row'). Be specific so the exercise is unambiguous.
+
+Use clear, specific exercise names:
+- "barbell bench press" NOT just "bench press"
+- "barbell squat" NOT just "squat"  
+- "barbell deadlift"
+- "pull up" or "chin up" (be specific)
+- "dumbbell shoulder press"
+- "dumbbell bicep curl"
+- "seated cable row" or "barbell row" (be specific)
+- "walking lunge" or "reverse lunge"
+- "push up"
 
 CONVERSATION STYLE:
 - Be friendly and motivating but professional

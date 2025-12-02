@@ -41,11 +41,13 @@ async function loadExercises(): Promise<void> {
   fuseInstance = new Fuse(exercisesCache, {
     keys: [
       { name: 'name', weight: 2 },
-      { name: 'name_normalized', weight: 1.5 }
+      { name: 'name_normalized', weight: 1.5 },
+      { name: 'description', weight: 0.5 } // Add description for fallback matching
     ],
     threshold: 0.4, // 0 = exact match, 1 = match anything
     includeScore: true,
     minMatchCharLength: 3,
+    ignoreLocation: true, // Search entire description text
   });
 }
 
@@ -147,6 +149,22 @@ export async function findExerciseMatch(
       if (prefixResults.length > 0 && (!results[0] || (prefixResults[0].score || 0) < (results[0].score || 1))) {
         results = prefixResults;
       }
+    }
+  }
+
+  // 5. If still low confidence, try searching descriptions with broader threshold
+  if (results.length === 0 || (results[0].score || 1) > 0.5) {
+    const descriptionSearch = new Fuse(exercisesCache, {
+      keys: ['description'],
+      threshold: 0.6, // More lenient for description matching
+      includeScore: true,
+      ignoreLocation: true,
+    });
+    
+    const descResults = descriptionSearch.search(searchName);
+    if (descResults.length > 0 && (!results[0] || (descResults[0].score || 0) < (results[0].score || 1))) {
+      results = descResults;
+      console.log(`Matched "${searchName}" via description: ${descResults[0].item.name}`);
     }
   }
 
