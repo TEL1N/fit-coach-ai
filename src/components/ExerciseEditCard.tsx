@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dumbbell, Trash2, GripVertical, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,6 +33,11 @@ const ExerciseEditCard = ({
   onDelete,
 }: ExerciseEditCardProps) => {
   const [editedExercise, setEditedExercise] = useState(exercise);
+  
+  // Reset edited exercise when the exercise prop changes or when editing starts
+  useEffect(() => {
+    setEditedExercise(exercise);
+  }, [exercise, isEditing]);
 
   const handleSave = () => {
     onSave(editedExercise);

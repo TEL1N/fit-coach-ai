@@ -142,38 +142,66 @@ const Workouts = () => {
   };
 
   const handleSaveChanges = async () => {
-    if (!workoutPlan) return;
+    if (!workoutPlan) {
+      console.error('[Workouts] No workout plan to save');
+      return;
+    }
+
+    console.log('[Workouts] Starting save changes...');
+    console.log('[Workouts] Days to save:', workoutPlan.days.length);
 
     try {
       // Update each exercise in the database
+      let savedCount = 0;
+      let errorCount = 0;
+      
       for (const day of workoutPlan.days) {
         for (const exercise of day.exercises) {
-          await supabase
+          console.log('[Workouts] Saving exercise:', exercise.id, exercise.exercise_name);
+          
+          const { error } = await supabase
             .from('workout_exercises')
             .update({
               exercise_name: exercise.exercise_name,
               sets: exercise.sets,
-              reps: exercise.reps,
+              reps: String(exercise.reps), // Ensure reps is a string
               rest_seconds: exercise.rest_seconds,
               notes: exercise.notes,
             })
             .eq('id', exercise.id);
+          
+          if (error) {
+            console.error('[Workouts] Error saving exercise:', exercise.id, error);
+            errorCount++;
+          } else {
+            savedCount++;
+          }
         }
       }
 
-      toast({
-        title: "Changes saved",
-        description: "Your workout plan has been updated successfully.",
-      });
+      console.log('[Workouts] Save complete. Saved:', savedCount, 'Errors:', errorCount);
 
-      // Refresh workout plan from context
-      await refreshWorkoutPlan();
+      if (errorCount > 0) {
+        toast({
+          title: "Partial save",
+          description: `Saved ${savedCount} exercises, but ${errorCount} failed.`,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Changes saved",
+          description: "Your workout plan has been updated successfully.",
+        });
+      }
+
+      // Refresh workout plan from context with force refresh
+      await refreshWorkoutPlan(true);
       
       setIsEditMode(false);
       setEditingExerciseId(null);
       setOriginalPlan(null);
     } catch (error) {
-      console.error('Error saving changes:', error);
+      console.error('[Workouts] Error saving changes:', error);
       toast({
         title: "Error",
         description: "Failed to save changes. Please try again.",
@@ -183,9 +211,15 @@ const Workouts = () => {
   };
 
   const handleUpdateExercise = (dayId: string, exerciseId: string, updates: Partial<Exercise>) => {
+    console.log('[Workouts] Updating exercise:', exerciseId, 'with:', updates);
+    
     setLocalWorkoutPlan(prev => {
-      if (!prev) return prev;
-      return {
+      if (!prev) {
+        console.log('[Workouts] No previous plan to update');
+        return prev;
+      }
+      
+      const updatedPlan = {
         ...prev,
         days: prev.days.map(day =>
           day.id === dayId
@@ -198,6 +232,9 @@ const Workouts = () => {
             : day
         )
       };
+      
+      console.log('[Workouts] Updated local plan:', updatedPlan);
+      return updatedPlan;
     });
     setEditingExerciseId(null);
   };
