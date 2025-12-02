@@ -381,8 +381,173 @@ const Chat = () => {
   };
 
   const handleGenerateWorkoutPlan = async () => {
-    setMessage("Please create my personalized workout plan in JSON format based on our conversation.");
-    setTimeout(() => handleSendMessage(), 100);
+    if (!conversationId || isSending) return;
+
+    const userMessage = "Please create my personalized workout plan in JSON format based on our conversation.";
+    setIsSending(true);
+    
+    // Play send sound
+    playSendSound();
+
+    try {
+      // Add user message to UI
+      const { data: newUserMsg } = await supabase
+        .from('messages')
+        .insert({
+          conversation_id: conversationId,
+          role: 'user',
+          content: userMessage,
+        })
+        .select()
+        .single();
+
+      if (newUserMsg) {
+        setMessages(prev => [...prev, newUserMsg as Message]);
+      }
+
+      // Prepare conversation history for Claude
+      const conversationHistory = messages
+        .filter(m => m.role === 'user' || m.role === 'assistant')
+        .map(m => ({ role: m.role, content: m.content }));
+
+      conversationHistory.push({ role: 'user', content: userMessage });
+
+      // Get AI response with higher token limit for workout plans
+      const systemPrompt = getFitnessCoachSystemPrompt(userProfile);
+      const maxTokens = 8192;
+      
+      const aiResponse = await sendClaudeMessage(conversationHistory, systemPrompt, maxTokens);
+
+      // Save AI response
+      const { data: aiMsg } = await supabase
+        .from('messages')
+        .insert({
+          conversation_id: conversationId,
+          role: 'assistant',
+          content: aiResponse,
+        })
+        .select()
+        .single();
+
+      if (aiMsg) {
+        setMessages(prev => [...prev, aiMsg as Message]);
+        playReceiveSound();
+      }
+
+      // Check if response contains JSON workout plan and save it
+      if (aiResponse.includes('{') && aiResponse.includes('"workout_name"')) {
+        try {
+          console.log('Detected workout plan JSON in response');
+          const jsonMatch = aiResponse.match(/\{[\s\S]*\}/);
+          
+          if (!jsonMatch) {
+            throw new Error('No valid JSON found in response');
+          }
+          
+          const jsonStr = jsonMatch[0];
+          const workoutPlan = JSON.parse(jsonStr);
+          
+          // Get current user
+          const { data: { session } } = await supabase.auth.getSession();
+          if (!session) {
+            throw new Error('No active session');
+          }
+
+          // Save workout plan to database
+          const { data: plan, error: planError } = await supabase
+            .from('workout_plans')
+            .insert({
+              user_id: session.user.id,
+              name: workoutPlan.workout_name,
+              description: workoutPlan.description || null,
+              weeks_duration: 1,
+              is_active: true
+            })
+            .select()
+            .single();
+
+          if (planError) throw planError;
+          if (!plan) throw new Error('No plan returned from insert');
+
+          // Save workout days and exercises
+          for (const day of workoutPlan.days) {
+            const { data: workoutDay, error: dayError } = await supabase
+              .from('workout_days')
+              .insert({
+                workout_plan_id: plan.id,
+                day_name: day.day_name,
+                day_order: day.day_order,
+                week_number: 1
+              })
+              .select()
+              .single();
+
+            if (dayError) throw dayError;
+            if (!workoutDay) throw new Error('No workout day returned from insert');
+
+            // Save exercises for this day
+            for (let i = 0; i < day.exercises.length; i++) {
+              const exercise = day.exercises[i];
+              const { error: exerciseError } = await supabase
+                .from('workout_exercises')
+                .insert({
+                  workout_day_id: workoutDay.id,
+                  exercise_id: null,
+                  exercise_name: exercise.name,
+                  exercise_order: exercise.exercise_order || i + 1,
+                  sets: exercise.sets,
+                  reps: exercise.reps,
+                  rest_seconds: exercise.rest_seconds,
+                  notes: exercise.notes || null
+                });
+              
+              if (exerciseError) throw exerciseError;
+            }
+          }
+
+          // Link conversation to workout plan
+          await supabase
+            .from('conversations')
+            .update({ workout_plan_id: plan.id })
+            .eq('id', conversationId);
+          
+          setWorkoutPlanId(plan.id);
+
+          // Show success message with navigation button
+          toast({
+            title: "Your plan is ready! 💪",
+            description: "Click to view your personalized workout plan",
+            action: (
+              <Button 
+                size="sm" 
+                onClick={() => navigate("/workouts")}
+                className="ml-auto"
+              >
+                View Plan
+              </Button>
+            ),
+          });
+        } catch (error: any) {
+          console.error('❌ Error parsing or saving workout plan:', error);
+          
+          toast({
+            title: "Unable to create workout plan",
+            description: "The plan couldn't be parsed. Check console for details.",
+            variant: "destructive",
+          });
+        }
+      }
+
+    } catch (error) {
+      console.error('Error sending message:', error);
+      toast({
+        title: "Error",
+        description: "Failed to send message. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSending(false);
+    }
   };
 
   if (isLoading) {
@@ -417,7 +582,7 @@ const Chat = () => {
       )}
 
       {/* Messages Area - Scrollable */}
-      <div className="flex-1 px-6 py-8 overflow-y-auto min-h-0" style={{ paddingBottom: 'calc(10rem + env(safe-area-inset-bottom))' }}>
+      <div className="flex-1 px-6 py-8 overflow-y-auto min-h-0" style={{ paddingBottom: 'calc(14rem + env(safe-area-inset-bottom))' }}>
         <div className="max-w-2xl mx-auto">
           {messages.map((msg, index) => (
             <div
@@ -469,8 +634,11 @@ const Chat = () => {
         </div>
       </div>
 
-      {/* Input Area - Premium Floating Style */}
-      <div className="glass-strong border-t border-white/10 px-6 py-4 flex-shrink-0 shadow-floating">
+      {/* Input Area - Fixed at Bottom Above Nav */}
+      <div 
+        className="fixed left-0 right-0 glass-strong border-t border-white/10 px-6 py-4 shadow-floating z-40"
+        style={{ bottom: 'calc(5rem + env(safe-area-inset-bottom))' }}
+      >
         <div className="max-w-2xl mx-auto">
           <Button
             onClick={handleGenerateWorkoutPlan}
