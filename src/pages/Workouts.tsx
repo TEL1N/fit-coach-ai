@@ -68,7 +68,6 @@ const Workouts = () => {
   const [activeWorkoutDayId, setActiveWorkoutDayId] = useState<string | null>(null);
   const [completedExercises, setCompletedExercises] = useState<Set<string>>(new Set());
   const [completedDays, setCompletedDays] = useState<Map<string, Date>>(new Map());
-  const [expandedExercises, setExpandedExercises] = useState<Set<string>>(new Set());
 
   const toggleDay = (dayId: string) => {
     setExpandedDays(prev => {
@@ -253,18 +252,6 @@ const Workouts = () => {
         if ('vibrate' in navigator) {
           navigator.vibrate(50);
         }
-      }
-      return newSet;
-    });
-  };
-
-  const handleToggleExerciseExpand = (exerciseId: string) => {
-    setExpandedExercises(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(exerciseId)) {
-        newSet.delete(exerciseId);
-      } else {
-        newSet.add(exerciseId);
       }
       return newSet;
     });
@@ -538,8 +525,6 @@ const Workouts = () => {
                                     restSeconds={exercise.rest_seconds}
                                     notes={exercise.notes}
                                     cachedMatch={exercise.exercise_name ? exerciseMatchCache.get(exercise.exercise_name) : undefined}
-                                    isExpanded={expandedExercises.has(exercise.id)}
-                                    onToggleExpand={() => handleToggleExerciseExpand(exercise.id)}
                                   />
                                 </div>
                               </div>
