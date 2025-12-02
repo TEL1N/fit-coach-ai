@@ -64,6 +64,7 @@ const Workouts = () => {
   const [isEditMode, setIsEditMode] = useState(false);
   const [editingExerciseId, setEditingExerciseId] = useState<string | null>(null);
   const [originalPlan, setOriginalPlan] = useState<WorkoutPlan | null>(null);
+  const [hasMadeChanges, setHasMadeChanges] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [activeWorkoutDayId, setActiveWorkoutDayId] = useState<string | null>(null);
   const [completedExercises, setCompletedExercises] = useState<Set<string>>(new Set());
@@ -131,19 +132,55 @@ const Workouts = () => {
       setLocalWorkoutPlan(clonedPlan);
       setExpandedDays(new Set(workoutPlan.days.map(d => d.id)));
     }
-    setHasPendingChanges(false);
+    setHasMadeChanges(false);
   };
 
-  const handleCancelEdit = () => {
+  const handleConfirmChanges = () => {
     setIsEditMode(false);
     setEditingExerciseId(null);
-    setHasPendingChanges(false);
-    if (originalPlan) {
-      setLocalWorkoutPlan(originalPlan);
-    } else if (contextWorkoutPlan) {
-      setLocalWorkoutPlan(contextWorkoutPlan);
-    }
+    setHasMadeChanges(false);
     setOriginalPlan(null);
+  };
+
+  const handleRevertChanges = async () => {
+    if (!originalPlan) return;
+    
+    try {
+      // Revert all exercises in the database to original values
+      for (const day of originalPlan.days) {
+        for (const exercise of day.exercises) {
+          await supabase
+            .from('workout_exercises')
+            .update({
+              exercise_name: exercise.exercise_name,
+              sets: exercise.sets,
+              reps: exercise.reps,
+              rest_seconds: exercise.rest_seconds,
+              notes: exercise.notes,
+            })
+            .eq('id', exercise.id);
+        }
+      }
+      
+      await refreshWorkoutPlan(true);
+      setLocalWorkoutPlan(originalPlan);
+      setIsEditMode(false);
+      setEditingExerciseId(null);
+      setHasMadeChanges(false);
+      setOriginalPlan(null);
+      
+      toast({
+        title: "Changes reverted",
+        description: "Your workout plan has been restored to its original state.",
+      });
+    } catch (error) {
+      console.error('Error reverting changes:', error);
+      toast({
+        title: "Error",
+        description: "Failed to revert changes. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleUpdateExercise = (dayId: string, exerciseId: string, updates: Partial<Exercise>) => {
@@ -164,7 +201,7 @@ const Workouts = () => {
       };
     });
     setEditingExerciseId(null);
-    setHasPendingChanges(true);
+    setHasMadeChanges(true);
   };
 
   const handleDeleteExercise = async (dayId: string, exerciseId: string) => {
@@ -533,6 +570,28 @@ const Workouts = () => {
           </Card>
         )}
       </div>
+
+      {/* Fixed Confirm/Revert Actions - Show When Changes Made in Edit Mode */}
+      {isEditMode && hasMadeChanges && (
+        <div
+          className="fixed left-0 right-0 bg-card/95 backdrop-blur-xl border-t border-border px-6 py-4 flex gap-3 z-40"
+          style={{ bottom: 'calc(5rem + env(safe-area-inset-bottom))' }}
+        >
+          <Button
+            variant="outline"
+            className="flex-1 h-12 rounded-xl font-medium"
+            onClick={handleRevertChanges}
+          >
+            Revert
+          </Button>
+          <Button
+            className="flex-1 h-12 rounded-xl font-semibold"
+            onClick={handleConfirmChanges}
+          >
+            Confirm Changes
+          </Button>
+        </div>
+      )}
 
       <EditPlanBottomSheet
         isOpen={isEditSheetOpen}
