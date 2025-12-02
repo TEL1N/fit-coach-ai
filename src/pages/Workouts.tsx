@@ -7,6 +7,7 @@ import MobileTabBar from "@/components/MobileTabBar";
 import EditPlanBottomSheet from "@/components/EditPlanBottomSheet";
 import ExerciseEditCard from "@/components/ExerciseEditCard";
 import ExerciseCard from "@/components/ExerciseCard";
+import { findExerciseMatches } from "@/lib/fuzzyMatcher";
 import { Calendar, Clock, Dumbbell, Plus, ChevronDown, ChevronUp, MessageSquare, Pencil, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -61,6 +62,7 @@ const Workouts = () => {
   const [editingExerciseId, setEditingExerciseId] = useState<string | null>(null);
   const [originalPlan, setOriginalPlan] = useState<WorkoutPlan | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [exerciseMatchCache, setExerciseMatchCache] = useState<Map<string, { imageUrl: string | null; confidence: number }>>(new Map());
 
   const toggleDay = (dayId: string) => {
     setExpandedDays(prev => {
@@ -287,6 +289,35 @@ const Workouts = () => {
             days: daysWithExercises,
             conversationId: conversation?.id
           });
+
+          // Pre-load all exercise matches in parallel for better performance
+          const allExerciseNames = daysWithExercises
+            .flatMap(day => day.exercises)
+            .map(ex => ex.exercise_name)
+            .filter((name): name is string => !!name);
+
+          if (allExerciseNames.length > 0) {
+            const matches = await findExerciseMatches(allExerciseNames);
+            const cache = new Map<string, { imageUrl: string | null; confidence: number }>();
+            
+            matches.forEach((match, name) => {
+              if (match && match.confidence >= 0.8) {
+                const imageUrls = match.exercise.image_urls;
+                const imageUrl = imageUrls && imageUrls.length > 0
+                  ? (imageUrls[0].startsWith('http') ? imageUrls[0] : `https://wger.de${imageUrls[0]}`)
+                  : null;
+                
+                cache.set(name, {
+                  imageUrl,
+                  confidence: match.confidence
+                });
+              } else {
+                cache.set(name, { imageUrl: null, confidence: 0 });
+              }
+            });
+            
+            setExerciseMatchCache(cache);
+          }
         }
       }
 
@@ -407,6 +438,7 @@ const Workouts = () => {
                                   reps={exercise.reps}
                                   restSeconds={exercise.rest_seconds}
                                   notes={exercise.notes}
+                                  cachedMatch={exercise.exercise_name ? exerciseMatchCache.get(exercise.exercise_name) : undefined}
                                 />
                               </div>
                             )}

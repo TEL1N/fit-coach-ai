@@ -49,13 +49,43 @@ async function loadExercises(): Promise<void> {
   });
 }
 
+// Common aliases for better matching
+const COMMON_ALIASES: Record<string, string> = {
+  'romanian deadlift': 'stiff leg deadlift',
+  'rdl': 'romanian deadlift',
+  'cable fly': 'cable crossover',
+  'cable flyes': 'cable crossover',
+  'face pull': 'rear delt',
+  'pull up': 'pullup',
+  'chin up': 'chinup',
+  'sit up': 'situp',
+  'push up': 'pushup',
+  'leg curl': 'lying leg curl',
+  'leg extension': 'leg extensions',
+};
+
 // Normalize exercise name for matching
 function normalizeExerciseName(name: string): string {
   return name
     .toLowerCase()
-    .replace(/[^a-z0-9\s]/g, '')
-    .replace(/\s+/g, ' ')
+    .replace(/[^a-z0-9\s]/g, '') // Remove special chars including hyphens
+    .replace(/\s+/g, ' ') // Normalize whitespace
     .trim();
+}
+
+// Remove common equipment prefixes for better fuzzy matching
+function removeEquipmentPrefix(name: string): string {
+  const prefixes = ['barbell', 'dumbbell', 'cable', 'machine', 'bodyweight', 'smith machine'];
+  let normalized = name.toLowerCase();
+  
+  for (const prefix of prefixes) {
+    if (normalized.startsWith(prefix + ' ')) {
+      normalized = normalized.substring(prefix.length + 1);
+      break;
+    }
+  }
+  
+  return normalized.trim();
 }
 
 // Find exact match first, then check aliases, then fuzzy search
@@ -70,11 +100,16 @@ export async function findExerciseMatch(
 
   const normalized = normalizeExerciseName(aiExerciseName);
 
+  // 0. Check common aliases first
+  const aliasedName = COMMON_ALIASES[normalized];
+  const searchName = aliasedName || aiExerciseName;
+  const searchNormalized = aliasedName ? normalizeExerciseName(aliasedName) : normalized;
+
   // 1. Check for existing alias
   const { data: alias } = await supabase
     .from('exercise_aliases')
     .select('exercise_id, confidence_score, exercises(*)')
-    .eq('alias', normalized)
+    .eq('alias', searchNormalized)
     .maybeSingle();
 
   if (alias && alias.exercises) {
@@ -88,12 +123,12 @@ export async function findExerciseMatch(
 
   // 2. Try exact match on name_normalized
   const exactMatch = exercisesCache.find(
-    (ex) => ex.name_normalized === normalized
+    (ex) => ex.name_normalized === searchNormalized
   );
 
   if (exactMatch) {
     // Save as alias for future lookups
-    await saveAlias(normalized, exactMatch.id, 1.0);
+    await saveAlias(searchNormalized, exactMatch.id, 1.0);
     return {
       exercise: exactMatch,
       confidence: 1.0,
@@ -101,10 +136,24 @@ export async function findExerciseMatch(
     };
   }
 
-  // 3. Fuzzy search with Fuse.js
-  const results = fuseInstance.search(aiExerciseName);
+  // 3. Fuzzy search with Fuse.js - try with original name first
+  let results = fuseInstance.search(searchName);
 
-  if (results.length === 0) return null;
+  // 4. If no good results, try without equipment prefix
+  if (results.length === 0 || (results[0].score || 1) > 0.4) {
+    const withoutPrefix = removeEquipmentPrefix(searchName);
+    if (withoutPrefix !== searchName.toLowerCase()) {
+      const prefixResults = fuseInstance.search(withoutPrefix);
+      if (prefixResults.length > 0 && (!results[0] || (prefixResults[0].score || 0) < (results[0].score || 1))) {
+        results = prefixResults;
+      }
+    }
+  }
+
+  if (results.length === 0) {
+    console.warn('No match found for:', aiExerciseName);
+    return null;
+  }
 
   // Convert Fuse scores to confidence (Fuse score is 0-1, where 0 is best)
   const matches = results.slice(0, 3).map((result) => ({
@@ -114,9 +163,14 @@ export async function findExerciseMatch(
 
   const bestMatch = matches[0];
 
+  // Log low confidence matches for improvement
+  if (bestMatch.confidence < 0.8) {
+    console.warn(`Low confidence match for "${aiExerciseName}": ${bestMatch.exercise.name} (${(bestMatch.confidence * 100).toFixed(0)}%)`);
+  }
+
   // Only save alias if confidence is high enough
   if (bestMatch.confidence >= 0.8) {
-    await saveAlias(normalized, bestMatch.exercise.id, bestMatch.confidence);
+    await saveAlias(searchNormalized, bestMatch.exercise.id, bestMatch.confidence);
   }
 
   return {
@@ -124,6 +178,24 @@ export async function findExerciseMatch(
     confidence: bestMatch.confidence,
     alternatives: matches.slice(1),
   };
+}
+
+// Batch find exercise matches for multiple exercises (optimized)
+export async function findExerciseMatches(
+  exerciseNames: string[]
+): Promise<Map<string, ExerciseMatch | null>> {
+  const results = new Map<string, ExerciseMatch | null>();
+  
+  // Run all matches in parallel
+  const matches = await Promise.all(
+    exerciseNames.map(name => findExerciseMatch(name))
+  );
+  
+  exerciseNames.forEach((name, index) => {
+    results.set(name, matches[index]);
+  });
+  
+  return results;
 }
 
 // Save exercise alias for faster future lookups
