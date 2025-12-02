@@ -31,7 +31,7 @@ interface WorkoutPlanContextType {
   workoutPlan: WorkoutPlan | null;
   exerciseMatchCache: Map<string, { imageUrl: string | null; confidence: number }>;
   isLoading: boolean;
-  refreshWorkoutPlan: () => Promise<void>;
+  refreshWorkoutPlan: (force?: boolean) => Promise<void>;
   clearCache: () => void;
 }
 
@@ -55,16 +55,17 @@ export const WorkoutPlanProvider = ({ children }: { children: ReactNode }) => {
   const loadingRef = useRef(false);
   const lastLoadTimeRef = useRef(0);
 
-  const loadWorkoutPlan = useCallback(async (showLoadingState = true) => {
-    // OPTIMIZATION: Prevent loads within 5 seconds of last load
+  const loadWorkoutPlan = useCallback(async (showLoadingState = true, forceRefresh = false) => {
+    // OPTIMIZATION: Prevent loads within 500ms of last load (reduced from 5s for better UX)
+    // But allow force refresh to bypass this
     const now = Date.now();
-    if (now - lastLoadTimeRef.current < 5000) {
+    if (!forceRefresh && now - lastLoadTimeRef.current < 500) {
       console.log('[WorkoutPlanContext] Skipping load - too soon after last load');
       return;
     }
 
-    // OPTIMIZATION: Prevent duplicate concurrent loads
-    if (loadingRef.current) {
+    // OPTIMIZATION: Prevent duplicate concurrent loads (unless forced)
+    if (!forceRefresh && loadingRef.current) {
       console.log('[WorkoutPlanContext] Load already in progress, skipping...');
       return;
     }
@@ -180,8 +181,8 @@ export const WorkoutPlanProvider = ({ children }: { children: ReactNode }) => {
     }
   }, []); // Add empty dependency array for useCallback
 
-  const refreshWorkoutPlan = async () => {
-    await loadWorkoutPlan(true);
+  const refreshWorkoutPlan = async (force = false) => {
+    await loadWorkoutPlan(true, force);
   };
 
   const clearCache = () => {

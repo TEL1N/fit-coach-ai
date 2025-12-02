@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -56,6 +56,7 @@ interface WorkoutPlan {
 
 const Workouts = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
   const { workoutPlan: contextWorkoutPlan, exerciseMatchCache, isLoading, refreshWorkoutPlan, clearCache } = useWorkoutPlan();
   const [localWorkoutPlan, setLocalWorkoutPlan] = useState<WorkoutPlan | null>(null);
@@ -78,6 +79,17 @@ const Workouts = () => {
       setLocalWorkoutPlan(contextWorkoutPlan);
     }
   }, [contextWorkoutPlan, isEditMode]);
+
+  // Force refresh when navigating from plan creation
+  useEffect(() => {
+    const state = location.state as { refreshPlan?: boolean } | null;
+    if (state?.refreshPlan) {
+      // Force refresh to load the newly created plan
+      refreshWorkoutPlan(true);
+      // Clear the state to prevent re-triggering
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state, refreshWorkoutPlan]);
 
   const toggleDay = (dayId: string) => {
     setExpandedDays(prev => {

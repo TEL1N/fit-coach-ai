@@ -376,7 +376,7 @@ const Chat = () => {
             action: (
               <Button 
                 size="sm" 
-                onClick={() => navigate("/workouts")}
+                onClick={() => navigate("/workouts", { state: { refreshPlan: true } })}
                 className="ml-auto"
               >
                 View Plan
@@ -490,7 +490,7 @@ const Chat = () => {
           action: (
             <Button 
               size="sm" 
-              onClick={() => navigate("/workouts")}
+              onClick={() => navigate("/workouts", { state: { refreshPlan: true } })}
               className="ml-auto"
             >
               View Plan
