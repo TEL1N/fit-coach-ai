@@ -3,12 +3,14 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import MobileTabBar from "@/components/MobileTabBar";
 import EditPlanBottomSheet from "@/components/EditPlanBottomSheet";
 import ExerciseEditCard from "@/components/ExerciseEditCard";
 import ExerciseCard from "@/components/ExerciseCard";
+import WorkoutSession from "@/components/WorkoutSession";
 import { findExerciseMatches } from "@/lib/fuzzyMatcher";
-import { Calendar, Clock, Dumbbell, Plus, ChevronDown, ChevronUp, MessageSquare, Pencil, Trash2 } from "lucide-react";
+import { Calendar, Clock, Dumbbell, Plus, ChevronDown, ChevronUp, MessageSquare, Pencil, Trash2, Play, CheckCircle2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
   Collapsible,
@@ -63,6 +65,9 @@ const Workouts = () => {
   const [originalPlan, setOriginalPlan] = useState<WorkoutPlan | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [exerciseMatchCache, setExerciseMatchCache] = useState<Map<string, { imageUrl: string | null; confidence: number }>>(new Map());
+  const [activeWorkoutDayId, setActiveWorkoutDayId] = useState<string | null>(null);
+  const [completedExercises, setCompletedExercises] = useState<Set<string>>(new Set());
+  const [completedDays, setCompletedDays] = useState<Map<string, Date>>(new Map());
 
   const toggleDay = (dayId: string) => {
     setExpandedDays(prev => {
@@ -236,6 +241,37 @@ const Workouts = () => {
     }
   };
 
+  const handleToggleExerciseComplete = (exerciseId: string) => {
+    setCompletedExercises(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(exerciseId)) {
+        newSet.delete(exerciseId);
+      } else {
+        newSet.add(exerciseId);
+        // Haptic feedback
+        if ('vibrate' in navigator) {
+          navigator.vibrate(50);
+        }
+      }
+      return newSet;
+    });
+  };
+
+  const handleStartWorkout = (dayId: string) => {
+    setActiveWorkoutDayId(dayId);
+  };
+
+  const handleWorkoutComplete = () => {
+    if (activeWorkoutDayId) {
+      setCompletedDays(prev => new Map(prev).set(activeWorkoutDayId, new Date()));
+    }
+    setActiveWorkoutDayId(null);
+  };
+
+  const handleExitWorkout = () => {
+    setActiveWorkoutDayId(null);
+  };
+
   useEffect(() => {
     const loadWorkoutPlan = async () => {
       const { data: { session } } = await supabase.auth.getSession();
@@ -324,6 +360,17 @@ const Workouts = () => {
             
             setExerciseMatchCache(cache);
           }
+
+          // Load completed exercises for today
+          const { data: logs } = await supabase
+            .from('exercise_logs')
+            .select('workout_exercise_id')
+            .eq('user_id', session.user.id)
+            .gte('completed_at', new Date(new Date().setHours(0, 0, 0, 0)).toISOString());
+
+          if (logs) {
+            setCompletedExercises(new Set(logs.map(log => log.workout_exercise_id)));
+          }
         }
       }
 
@@ -402,13 +449,20 @@ const Workouts = () => {
                     <CollapsibleTrigger className="w-full">
                       <div className="p-5 flex items-center justify-between hover:bg-muted/50 transition-colors">
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                            <span className="text-primary font-semibold">{day.day_order}</span>
+                          <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center relative">
+                            {completedDays.has(day.id) ? (
+                              <CheckCircle2 className="w-5 h-5 text-primary" />
+                            ) : (
+                              <span className="text-primary font-semibold">{day.day_order}</span>
+                            )}
                           </div>
                           <div className="text-left">
                             <h3 className="font-semibold">{day.day_name}</h3>
                             <p className="text-sm text-muted-foreground">
                               {day.exercises.length} exercises
+                              {completedDays.has(day.id) && (
+                                <span className="ml-2 text-primary">• Completed</span>
+                              )}
                             </p>
                           </div>
                         </div>
@@ -422,6 +476,19 @@ const Workouts = () => {
                     
                     <CollapsibleContent>
                       <div className="border-t border-border">
+                        {/* Start Workout Button */}
+                        {!isEditMode && (
+                          <div className="p-4 border-b border-border">
+                            <Button
+                              className="w-full h-14 rounded-xl text-base font-semibold"
+                              onClick={() => handleStartWorkout(day.id)}
+                            >
+                              <Play className="w-5 h-5 mr-2" />
+                              Start Workout
+                            </Button>
+                          </div>
+                        )}
+
                         {day.exercises.map((exercise, idx) => (
                           <div
                             key={exercise.id}
@@ -437,15 +504,22 @@ const Workouts = () => {
                                 onDelete={() => handleDeleteExercise(day.id, exercise.id)}
                               />
                             ) : (
-                              <div className="p-4">
-                                <ExerciseCard
-                                  exerciseName={exercise.exercise_name || `Exercise ${exercise.exercise_order}`}
-                                  sets={exercise.sets}
-                                  reps={exercise.reps}
-                                  restSeconds={exercise.rest_seconds}
-                                  notes={exercise.notes}
-                                  cachedMatch={exercise.exercise_name ? exerciseMatchCache.get(exercise.exercise_name) : undefined}
+                              <div className="p-4 flex items-start gap-3">
+                                <Checkbox
+                                  checked={completedExercises.has(exercise.id)}
+                                  onCheckedChange={() => handleToggleExerciseComplete(exercise.id)}
+                                  className="mt-1 h-5 w-5"
                                 />
+                                <div className="flex-1">
+                                  <ExerciseCard
+                                    exerciseName={exercise.exercise_name || `Exercise ${exercise.exercise_order}`}
+                                    sets={exercise.sets}
+                                    reps={exercise.reps}
+                                    restSeconds={exercise.rest_seconds}
+                                    notes={exercise.notes}
+                                    cachedMatch={exercise.exercise_name ? exerciseMatchCache.get(exercise.exercise_name) : undefined}
+                                  />
+                                </div>
                               </div>
                             )}
                           </div>
@@ -586,6 +660,22 @@ const Workouts = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Workout Session Modal */}
+      {activeWorkoutDayId && workoutPlan && (
+        <WorkoutSession
+          dayName={workoutPlan.days.find(d => d.id === activeWorkoutDayId)?.day_name || ''}
+          exercises={workoutPlan.days
+            .find(d => d.id === activeWorkoutDayId)?.exercises
+            .map(ex => ({
+              ...ex,
+              imageUrl: ex.exercise_name ? exerciseMatchCache.get(ex.exercise_name)?.imageUrl || null : null,
+            })) || []
+          }
+          onComplete={handleWorkoutComplete}
+          onExit={handleExitWorkout}
+        />
+      )}
 
       <MobileTabBar />
     </div>
