@@ -19,7 +19,6 @@ interface ChatContextType {
   conversationId: string | null;
   workoutPlanId: string | null;
   userProfile: any;
-  hasUsedFreeModification: boolean;
   isLoading: boolean;
   setMessages: (messages: Message[] | ((prev: Message[]) => Message[])) => void;
   setConversationId: (id: string | null) => void;
@@ -27,7 +26,6 @@ interface ChatContextType {
   loadConversation: (convId: string) => Promise<void>;
   refreshConversations: () => Promise<void>;
   refreshUserProfile: () => Promise<void>;
-  setHasUsedFreeModification: (value: boolean) => void;
 }
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
@@ -45,7 +43,6 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [workoutPlanId, setWorkoutPlanId] = useState<string | null>(null);
   const [userProfile, setUserProfile] = useState<any>(null);
-  const [hasUsedFreeModification, setHasUsedFreeModification] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [hasFetchedOnce, setHasFetchedOnce] = useState(false);
 
@@ -121,11 +118,8 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
           experience_level: profile.experience_level,
           available_equipment: profile.available_equipment,
           workout_frequency: profile.workout_frequency,
-          limitations: profile.limitations || 'None',
-          has_used_free_modification: profile.has_used_free_modification || false
+          limitations: profile.limitations || 'None'
         });
-        // Set the free modification flag
-        setHasUsedFreeModification(profile.has_used_free_modification || false);
       } else {
         console.warn('[ChatContext] ⚠️ No profile found for user - onboarding may not be complete');
       }
@@ -210,7 +204,6 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
         conversationId,
         workoutPlanId,
         userProfile,
-        hasUsedFreeModification,
         isLoading: isLoading && !hasFetchedOnce,
         setMessages,
         setConversationId,
@@ -218,7 +211,6 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
         loadConversation,
         refreshConversations,
         refreshUserProfile,
-        setHasUsedFreeModification,
       }}
     >
       {children}
