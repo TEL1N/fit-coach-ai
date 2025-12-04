@@ -42,7 +42,6 @@ const Chat = () => {
     setWorkoutPlanId,
     loadConversation,
     refreshUserProfile,
-    setHasUsedFreeModification,
   } = useChatContext();
   const { workoutPlan, setWorkoutPlanDirectly, refreshWorkoutPlan } = useWorkoutPlan();
   const [isSending, setIsSending] = useState(false);
@@ -409,8 +408,7 @@ const Chat = () => {
       console.log('[Chat] Fresh profile fetch result:', {
         success: !!freshProfile,
         error: profileError?.message || null,
-        fitness_goal: freshProfile?.fitness_goal || 'NOT SET',
-        has_used_free_modification: freshProfile?.has_used_free_modification || false
+        fitness_goal: freshProfile?.fitness_goal || 'NOT SET'
       });
       
       if (profileError) {
@@ -420,7 +418,6 @@ const Chat = () => {
       const systemPrompt = getFitnessCoachSystemPrompt(profileToUse);
       console.log('[Chat] System prompt includes profile:', systemPrompt.includes('USER\'S FITNESS PROFILE'));
       console.log('[Chat] Has existing plan:', hasExistingPlan);
-      console.log('[Chat] Is modification request:', isModificationRequest);
       
       const isWorkoutPlanRequest = userMessage.toLowerCase().includes('workout plan') || 
                                    userMessage.toLowerCase().includes('create my') ||
@@ -613,17 +610,14 @@ const Chat = () => {
         .eq('is_active', true);
 
       if (existingPlans && existingPlans.length > 0) {
-        // User already has a plan - offer to view it instead of showing upgrade modal
-        toast.info("You already have a workout plan! Redirecting to view it.", {
-          action: {
-            label: "View Plan",
-            onClick: () => navigate("/workouts", { state: { refreshPlan: true } }),
-          },
+        // User already has a plan - navigate to view it
+        toast({
+          title: "You already have a workout plan!",
+          description: "Redirecting to view it...",
         });
-        // Navigate after a short delay
         setTimeout(() => {
           navigate("/workouts", { state: { refreshPlan: true } });
-        }, 1500);
+        }, 1000);
         return;
       }
     } catch (error) {
@@ -711,15 +705,7 @@ const Chat = () => {
         setWorkoutPlanId(data.workoutPlanId);
         setHasExistingPlan(true);
         
-        // IMPORTANT: Set the free modification flag - after this, user cannot send more messages
-        // This locks the chat after the workout plan is generated
-        await supabase
-          .from('user_fitness_profiles')
-          .update({ has_used_free_modification: true })
-          .eq('user_id', session.user.id);
-        
-        setHasUsedFreeModification(true);
-        console.log('[Chat] Free tier used - chat is now locked');
+        console.log('[Chat] Workout plan created - free tier used');
         
         // Play receive sound
         playReceiveSound();
