@@ -1,73 +1,163 @@
-# Welcome to your Lovable project
+# TailorFit - AI-Powered Fitness Coach
 
-## Project info
+A modern mobile-first fitness application that generates personalized workout plans through intelligent AI conversation.
 
-**URL**: https://lovable.dev/projects/776b3846-62dc-425f-8756-e1887170253e
+## 🎯 Features
 
-## How can I edit this code?
+- **AI Conversation**: Chat with Claude AI to discuss fitness goals, experience level, and available equipment
+- **Personalized Plans**: Automatically generated workout programs tailored to your profile
+- **Progress Tracking**: Track completed exercises and maintain workout streaks
+- **Mobile-First Design**: Premium dark mode UI optimized for iOS and Android
+- **Real-time Updates**: Instant plan modifications through AI chat
 
-There are several ways of editing your application.
+## 🛠️ Tech Stack
 
-**Use Lovable**
+- **Frontend**: React 18, TypeScript, Vite
+- **UI Framework**: Tailwind CSS, shadcn/ui, Framer Motion
+- **Backend**: Supabase (Auth, Database, Edge Functions)
+- **AI**: Claude 3.5 Sonnet via Anthropic API
+- **State Management**: React Context API
+- **Routing**: React Router v6
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/776b3846-62dc-425f-8756-e1887170253e) and start prompting.
+## 🏗️ Architecture
 
-Changes made via Lovable will be committed automatically to this repo.
+### Frontend
+- `/src/pages` - Main application pages (Auth, Onboarding, Chat, Workouts, Profile)
+- `/src/components` - Reusable UI components
+- `/src/contexts` - Global state management (ChatContext, WorkoutPlanContext)
+- `/src/lib` - Utility functions and service integrations
+- `/src/integrations/supabase` - Auto-generated Supabase client and types
 
-**Use your preferred IDE**
+### Backend (Supabase)
+- `/supabase/functions` - Edge Functions for AI integration
+  - `chat-with-claude` - Conversational AI interface
+  - `generate-workout-plan` - Automated plan generation
+- `/supabase/migrations` - Database schema and RLS policies
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+### Database Schema
+- `user_fitness_profiles` - User onboarding data (goals, experience, equipment)
+- `conversations` - Chat history
+- `messages` - Individual chat messages
+- `workout_plans` - Generated workout programs
+- `workout_days` - Days within a plan
+- `workout_exercises` - Individual exercises with sets/reps
+- `exercises` - Exercise library (synced from WGER API)
+- `exercise_logs` - Completed workout tracking
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+## 🚀 Getting Started
 
-Follow these steps:
+### Prerequisites
+- Node.js 18+ or Bun
+- Supabase account
+- Anthropic API key
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+### Installation
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+1. **Clone the repository**
+```bash
+   git clone https://github.com/yourusername/tailorfit.git
+   cd tailorfit
 ```
 
-**Edit a file directly in GitHub**
+2. **Install dependencies**
+```bash
+   npm install
+   # or
+   bun install
+```
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+3. **Set up environment variables**
+   Create a `.env` file in the root directory:
+```env
+   VITE_SUPABASE_PROJECT_ID=your_project_id
+   VITE_SUPABASE_PUBLISHABLE_KEY=your_anon_key
+   VITE_SUPABASE_URL=https://your-project.supabase.co
+```
 
-**Use GitHub Codespaces**
+4. **Set up Supabase**
+```bash
+   # Install Supabase CLI
+   npm install -g supabase
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+   # Link to your project
+   supabase link --project-ref your-project-ref
 
-## What technologies are used for this project?
+   # Push migrations
+   supabase db push
 
-This project is built with:
+   # Deploy edge functions
+   supabase functions deploy chat-with-claude
+   supabase functions deploy generate-workout-plan
+```
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+5. **Start development server**
+```bash
+   npm run dev
+   # or
+   bun dev
+```
 
-## How can I deploy this project?
+   Open [http://localhost:8080](http://localhost:8080)
 
-Simply open [Lovable](https://lovable.dev/projects/776b3846-62dc-425f-8756-e1887170253e) and click on Share -> Publish.
+## 📱 Key Features Implementation
 
-## Can I connect a custom domain to my Lovable project?
+### AI Workout Generation
+The app uses Claude 3.5 Sonnet to generate personalized workout plans based on:
+- Fitness goals (muscle building, weight loss, endurance, etc.)
+- Experience level (beginner to advanced)
+- Available equipment
+- Workout frequency
+- Injuries/limitations
 
-Yes, you can!
+Plans are goal-specific with appropriate rep ranges, rest periods, and exercise selection.
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+### Real-time Chat
+Conversational UI powered by Claude AI allows users to:
+- Ask fitness questions
+- Request plan modifications
+- Get exercise alternatives
+- Receive motivation and tips
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+### Progressive Enhancement
+- Mobile-first responsive design
+- iOS safe area insets for notch/Dynamic Island
+- Haptic feedback for interactions
+- Smooth animations with Framer Motion
+- Loading states and skeleton screens
+
+## 🔐 Security
+
+- Row Level Security (RLS) policies on all tables
+- JWT-based authentication via Supabase Auth
+- API keys never exposed to client
+- Environment variables properly configured
+- Secure edge functions with JWT verification
+
+## 📈 Performance Optimizations
+
+- Aggressive caching of workout plans in context
+- Batch database queries (e.g., fetching plans with nested days/exercises)
+- Debounced API calls
+- Lazy loading of components
+- Optimized re-renders with React.memo
+
+## 🧪 Exercise Matching System
+
+The app includes a fuzzy matching system for linking AI-generated exercise names to a comprehensive exercise database:
+- Uses Fuse.js for fuzzy string matching
+- Syncs with WGER Exercise API
+- Confidence scoring for matches
+- Alias caching for performance
+- Fallback to exercise name storage
+
+## 📝 License
+
+MIT License - feel free to use this project for learning or personal use.
+
+## 🤝 Contributing
+
+This is a personal project, but suggestions and feedback are welcome!
+
+## ⚠️ Disclaimer
+
+This application provides fitness guidance through AI but is not a substitute for professional medical or fitness advice. Always consult healthcare providers before starting new exercise programs.
